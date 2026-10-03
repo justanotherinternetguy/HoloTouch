@@ -1,0 +1,77 @@
+# Copy to ~/.config/holowm/menu.toml to replace the built-in pie menu.
+# Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track.
+# Keep each level to 12 items or fewer.
+
+[[item]]
+name = "Terminal"
+icon = "utilities-terminal"
+type = "command"
+data = "exo-open --launch TerminalEmulator"
+
+[[item]]
+name = "Browser"
+icon = "web-browser"
+type = "command"
+data = "exo-open --launch WebBrowser"
+
+[[item]]
+name = "Editor"
+icon = "accessories-text-editor"
+type = "app"
+data = "org.xfce.mousepad.desktop"
+
+[[item]]
+name = "Windows"
+icon = "view-grid"
+type = "running_windows"
+
+[[item]]
+name = "Window"
+type = "submenu"
+
+  [[item.children]]
+  name = "Maximize"
+  type = "window_action"
+  data = "maximize"
+
+  [[item.children]]
+  name = "Tile right"
+  type = "window_action"
+  data = "tile_right"
+
+  [[item.children]]
+  name = "Close"
+  type = "window_action"
+  data = "close"
+
+  [[item.children]]
+  name = "Minimize"
+  type = "window_action"
+  data = "minimize"
+
+  [[item.children]]
+  name = "Tile left"
+  type = "window_action"
+  data = "tile_left"
+
+  [[item.children]]
+  name = "To workspace 2"
+  type = "send_to_workspace"
+  data = 1
+
+[[item]]
+name = "Music"
+icon = "applications-multimedia"
+type = "submenu"
+
+  [[item.children]]
+  name = "Next track"
+  icon = "media-skip-forward"
+  type = "track"
+  data = "next"
+
+  [[item.children]]
+  name = "Previous track"
+  icon = "media-skip-backward"
+  type = "track"
+  data = "previous"

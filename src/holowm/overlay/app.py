@@ -1,0 +1,321 @@
+"""The core process: Qt event loop, overlay window, engine tick, tray icon and control socket."""
+
+from __future__ import annotations
+
+import logging
+import os
+import signal
+import subprocess
+import time
+from pathlib import Path
+
+# The overlay draws in real pixels to line up with window geometry, so Qt must not scale it.
+os.environ["QT_SCALE_FACTOR"] = "1"
+os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "0"
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
+os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
+
+from PySide6.QtCore import QSize, Qt, QTimer, QUrl  # noqa: E402
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QSurfaceFormat  # noqa: E402
+from PySide6.QtNetwork import QLocalServer  # noqa: E402
+from PySide6.QtQuick import QQuickImageProvider, QQuickView  # noqa: E402
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
+
+from holowm.config import SOCKET_PATH, Config  # noqa: E402
+from holowm.core.engine import Engine  # noqa: E402
+from holowm.launcher.camera import Shutter, camera_command  # noqa: E402
+from holowm.overlay.bridge import Bridge  # noqa: E402
+from holowm.overlay.images import WindowImageProvider, WindowImages  # noqa: E402
+
+log = logging.getLogger(__name__)
+
+_QML = Path(__file__).parent / "qml" / "Main.qml"
+
+# The overlay window needs an alpha channel to be see-through.
+_format = QSurfaceFormat()
+_format.setAlphaBufferSize(8)
+_format.setSwapInterval(1)
+QSurfaceFormat.setDefaultFormat(_format)
+_RAISE_INTERVAL_MS = 2000
+
+
+class ThemeIconProvider(QQuickImageProvider):
+    """Serves image://theme/<icon name or absolute path> to the pie menu."""
+
+    def __init__(self):
+        super().__init__(QQuickImageProvider.ImageType.Pixmap)
+
+    def requestPixmap(self, icon_id: str, size: QSize, requested: QSize) -> QPixmap:
+        side = requested.width() if requested.width() > 0 else 96
+        icon = QIcon(icon_id) if icon_id.startswith("/") else QIcon.fromTheme(icon_id)
+        pixmap = icon.pixmap(side, side)
+        if pixmap.isNull():
+            pixmap = QPixmap(1, 1)
+            pixmap.fill(Qt.GlobalColor.transparent)
+        return pixmap
+
+
+def _use_desktop_icon_theme() -> None:
+    try:
+        name = subprocess.run(
+            ["xfconf-query", "-c", "xsettings", "-p", "/Net/IconThemeName"],
+            capture_output=True, text=True, timeout=2,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        name = ""
+    QIcon.setThemeName(name or "Adwaita")
+    QIcon.setFallbackThemeName("hicolor")
+
+
+def _tray_pixmap(color: str, paused: bool) -> QPixmap:
+    pixmap = QPixmap(64, 64)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    tone = QColor("#7a8a90" if paused else color)
+    painter.setPen(QPen(tone, 6))
+    painter.drawEllipse(8, 8, 48, 48)
+    painter.setBrush(tone)
+    painter.drawEllipse(24, 24, 16, 16)
+    painter.end()
+    return pixmap
+
+
+class App:
+    def __init__(self, cfg: Config, backend, source, exit_when_done: bool = False, prompter=None):
+        """With a prompter, hands are tracked and shown but start no gestures, and the app ends with its script."""
+        self.cfg = cfg
+        self.backend = backend
+        self.source = source
+        self.exit_when_done = exit_when_done
+        self.prompter = prompter
+        self.qt = QApplication.instance() or QApplication(["holowm"])
+        self.qt.setQuitOnLastWindowClosed(False)
+        _use_desktop_icon_theme()
+        self.engine = Engine(cfg, backend)
+        self.engine.acting = prompter is None
+        self.images = WindowImages(backend, cfg.switcher.thumbnails)
+        self.bridge = Bridge(cfg, self.images)
+        self.debug = cfg.ui.debug
+        self._frame_times: list[float] = []
+        self._latency_ms = 0.0
+        self._last_frame = None
+        self._camera_app: subprocess.Popen | None = None  # the camera app, while it has the webcam
+        self._lent = False  # tracking is paused only because the camera app has the webcam
+        self._shutter: Shutter | None = None  # at work until the camera app has taken its photo
+        self._view = self._make_view()
+        self._tray = self._make_tray()
+        self._server = self._make_server()
+
+        refresh = self.qt.primaryScreen().refreshRate() or 60.0
+        hz = cfg.ui.tick_hz or refresh
+        self._tick_timer = QTimer()
+        self._tick_timer.setTimerType(Qt.TimerType.PreciseTimer)
+        self._tick_timer.timeout.connect(self._tick)
+        self._tick_timer.start(max(round(1000.0 / hz), 1))
+        self._raise_timer = QTimer()
+        self._raise_timer.timeout.connect(lambda: self._view.isVisible() and self._view.raise_())
+        self._raise_timer.start(_RAISE_INTERVAL_MS)
+        signal.signal(signal.SIGINT, lambda *_: self.qt.quit())
+        signal.signal(signal.SIGTERM, lambda *_: self.qt.quit())
+
+    # -- setup -------------------------------------------------------------------------------
+
+    def _make_view(self) -> QQuickView:
+        view = QQuickView()
+        view.setFlags(
+            Qt.WindowType.FramelessWindowHint
+            | Qt.WindowType.WindowStaysOnTopHint
+            | Qt.WindowType.BypassWindowManagerHint  # override-redirect: above everything, unmanaged
+            | Qt.WindowType.WindowTransparentForInput  # empty input shape: clicks pass through
+            | Qt.WindowType.WindowDoesNotAcceptFocus
+            | Qt.WindowType.Tool
+        )
+        view.setColor(QColor(0, 0, 0, 0))
+        view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+        view.engine().addImageProvider("theme", ThemeIconProvider())
+        view.engine().addImageProvider("window", WindowImageProvider(self.images))
+        view.rootContext().setContextProperty("bridge", self.bridge)
+        view.setSource(QUrl.fromLocalFile(str(_QML)))
+        for error in view.errors():
+            log.error("QML: %s", error.toString())
+        if view.status() != QQuickView.Status.Ready:
+            raise RuntimeError("overlay failed to load")
+        view.setGeometry(self.qt.primaryScreen().geometry())
+        view.show()
+        return view
+
+    def _make_tray(self) -> QSystemTrayIcon | None:
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return None
+        tray = QSystemTrayIcon(QIcon(_tray_pixmap(self.cfg.ui.accent, False)))
+        menu = QMenu()
+        self._pause_action = menu.addAction("Pause tracking")
+        self._pause_action.triggered.connect(lambda: self.command("toggle"))
+        debug_action = menu.addAction("Debug overlay")
+        debug_action.setCheckable(True)
+        debug_action.setChecked(self.debug)
+        debug_action.triggered.connect(lambda: self.command("debug"))
+        menu.addSeparator()
+        menu.addAction("Quit HoloWM").triggered.connect(self.qt.quit)
+        tray.setContextMenu(menu)
+        tray.setToolTip("HoloWM")
+        tray.activated.connect(
+            lambda reason: reason == QSystemTrayIcon.ActivationReason.Trigger and self.command("toggle")
+        )
+        tray.show()
+        self._tray_menu = menu
+        return tray
+
+    def _make_server(self) -> QLocalServer:
+        QLocalServer.removeServer(str(SOCKET_PATH))
+        server = QLocalServer()
+        server.newConnection.connect(self._on_connection)
+        if not server.listen(str(SOCKET_PATH)):
+            log.warning("control socket unavailable: %s", server.errorString())
+        return server
+
+    # -- control -----------------------------------------------------------------------------
+
+    def _on_connection(self) -> None:
+        socket = self._server.nextPendingConnection()
+
+        def respond():
+            reply = self.command(bytes(socket.readAll()).decode().strip())
+            socket.write((reply + "\n").encode())
+            socket.flush()
+            socket.disconnectFromServer()
+
+        socket.readyRead.connect(respond)
+
+    def command(self, name: str) -> str:
+        if name in ("pause", "resume", "toggle"):
+            paused = {"pause": True, "resume": False, "toggle": not self.engine.paused}[name]
+            self._lent = False  # asked for by hand: closing the camera app no longer decides it
+            if not paused:
+                self.source.resume()
+            self.engine.set_paused(paused)
+            # Hiding the window lets the compositor stop compositing fullscreen apps while paused.
+            self._view.setVisible(not paused)
+            if self._tray is not None:
+                self._tray.setIcon(QIcon(_tray_pixmap(self.cfg.ui.accent, paused)))
+                self._pause_action.setText("Resume tracking" if paused else "Pause tracking")
+            return "paused" if paused else "running"
+        if name == "debug":
+            self.debug = not self.debug
+            return f"debug {'on' if self.debug else 'off'}"
+        if name == "status":
+            state = "paused" if self.engine.paused else "running"
+            return f"{state}; {self._tracker_fps():.0f} fps; {len(self.engine.tracker.hands)} hands"
+        if name == "quit":
+            QTimer.singleShot(0, self.qt.quit)
+            return "bye"
+        return f"unknown command: {name}"
+
+    # -- camera app --------------------------------------------------------------------------
+
+    def _open_camera(self) -> None:
+        """Lend the webcam to the camera app: tracking stops, and starts again once the app is closed."""
+        command = camera_command(self.cfg)
+        if not command:
+            log.warning("no camera app found; name one with camera_command under [gesture]")
+            return
+        # Only one program can use the webcam at a time, so it is given up before the app starts.
+        self.source.suspend()
+        shutter = Shutter(self.backend, self.cfg, time.monotonic())
+        try:
+            self._camera_app = subprocess.Popen(
+                command, shell=True, start_new_session=True,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )  # fmt: skip
+        except OSError as exc:
+            log.error("could not open the camera app %r: %s", command, exc)
+            self.source.resume()
+            return
+        log.info("opened the camera app (%s); tracking is paused until it is closed", command)
+        self.command("pause")
+        self._lent = True
+        self._shutter = shutter
+
+    def _watch_camera(self) -> None:
+        if self.engine.camera_wanted:
+            self.engine.camera_wanted = False
+            if self._camera_app is None:
+                self._open_camera()
+        if self._shutter is not None and not self._shutter.step(time.monotonic()):
+            self._shutter = None
+        if self._camera_app is not None and self._camera_app.poll() is not None:
+            self._camera_app = self._shutter = None
+            if self._lent:
+                log.info("the camera app was closed; tracking again")
+                self.command("resume")
+
+    # -- loop --------------------------------------------------------------------------------
+
+    def _tracker_fps(self) -> float:
+        now = time.monotonic()
+        self._frame_times = [t for t in self._frame_times if now - t <= 1.0]
+        return float(len(self._frame_times))
+
+    def _tick(self) -> None:
+        now = time.monotonic()
+        for frame in self.source.drain():
+            self.engine.on_frame(frame)
+            self._frame_times.append(now)
+            self._latency_ms += 0.1 * ((now - frame.t_capture) * 1000.0 - self._latency_ms)
+            self._last_frame = frame
+        state = self.engine.tick(now)
+        self._watch_camera()
+        prompt = self.prompter.step(now) if self.prompter is not None else None
+        self.bridge.apply(state, self._debug_info() if self.debug else None, prompt)
+        if self.exit_when_done and getattr(self.source, "finished", False):
+            self.qt.quit()
+        if self.prompter is not None and self.prompter.finished:
+            self.qt.quit()
+
+    def _debug_info(self) -> dict:
+        engine = self.engine
+        lines = [
+            f"tracker {self._tracker_fps():4.0f} fps   capture-to-tick {self._latency_ms:5.1f} ms",
+            f"state   {'PAUSED' if engine.paused else type(engine.active).__name__ if engine.active else 'idle'}",
+        ]
+        if self.source.error:
+            lines.append(f"error   {self.source.error}")
+        for hand in sorted(engine.tracker.hands.values(), key=lambda h: h.id):
+            f = hand.features
+            lines.append(
+                f"hand {hand.id} {hand.handedness[:1]} {hand.pose.value:<12} "
+                f"i={f.pinch_index:.2f} m={f.pinch_middle:.2f} p={f.pinch_pinky:.2f} t={f.finger_tilt:+4.0f} "
+                f"{'armed' if hand.armed else '-'}"
+            )
+        face = engine.face
+        seen = face.visible(time.monotonic())
+        if seen:
+            # Per hand: how far it is from the chin (c, in face heights) and how much nearer the
+            # camera than the face (z). A fist on the chin needs c under chin_reach and z under chin_depth.
+            measures = [f"{h.id}: c={face.reach(h):.2f} z={face.closeness(h):.2f}" for h in engine.tracker.hands.values()]
+            lines.append("face    " + ("   ".join(measures) or "seen"))
+        else:
+            lines.append("face    not seen")
+        m = self.cfg.mapping
+        aspect = self.cfg.camera.width / self.cfg.camera.height
+        return {
+            "visible": True,
+            "text": "\n".join(lines),
+            "box": [m.box_x, m.box_y, m.box_w, m.box_h],
+            "hands": [h.landmarks[:, :2].round(3).tolist() for h in engine.tracker.hands.values()],
+            "face": face.outline.round(3).tolist() if seen else [],
+            # The chin, and how far from it a fist may be, as fractions of the frame's width and height.
+            "chin": [float(face.chin[0]) / aspect, float(face.chin[1]), face.size * self.cfg.gesture.chin_reach] if seen else [],
+        }
+
+    def run(self) -> int:
+        code = self.qt.exec()
+        self._tick_timer.stop()
+        self.engine.cancel_active()
+        self.source.stop()
+        self._server.close()
+        if hasattr(self.backend, "close_backend"):
+            self.backend.flush()
+            self.backend.close_backend()
+        return code
