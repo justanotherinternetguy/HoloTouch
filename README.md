@@ -29,3 +29,5 @@ HoloWM is designed to be...
 - **extensible** with custom gesture creation and fine-tuning
 - **3D space-first** by using all the space around the user and using facial features to locate gestures
 - **quick** and **responsive,** making it an **actually viable replacement** for keyboard-mouse control
+
+HoloWM is the **closest** you will get to tony stark tossing windows around.
