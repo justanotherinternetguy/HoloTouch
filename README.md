@@ -1,5 +1,7 @@
 # HoloWM
 
+> holographic window manager
+
 ![jarvis](4d914bbad1694af7e3d9cc78270a7f14.gif)
 
 theme: _navigation_
