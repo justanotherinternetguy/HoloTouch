@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from holowm.config import CONFIG_DIR, SOCKET_PATH, load_config
+from holowm.config import CONFIG_DIR, SOCKET_PATH, Config, load_config
 
 
 def _cmd_run(args) -> int:
@@ -140,6 +140,23 @@ def _cmd_doctor(args) -> int:
     return run_doctor(load_config(args.config), measure=not args.no_camera)
 
 
+def _cmd_panel(args) -> int:
+    if args.install:
+        from holowm.panel.desktop import install_launcher
+
+        print(f"added HoloWM to the applications menu: {install_launcher()}")
+        return 0
+    from holowm.panel.app import run_panel
+
+    # Opened from the applications menu there is no terminal to complain to, so a config file
+    # that cannot be read is reported in the panel itself.
+    try:
+        cfg, problem = load_config(args.config), ""
+    except ValueError as exc:
+        cfg, problem = Config(), f"The config file has a problem: {exc}"
+    return run_panel(cfg, args.config, problem)
+
+
 def _cmd_ctl(args) -> int:
     client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
@@ -168,6 +185,10 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--record", type=Path, metavar="FILE", help="also record the hand tracking to a JSONL file")
     run.add_argument("--frames", action="store_true", help="with --record, save every camera frame too, as `record --frames` does")
     run.set_defaults(func=_cmd_run)
+
+    panel = commands.add_parser("panel", help="open the control panel: a window to start, stop and watch HoloWM from")
+    panel.add_argument("--install", action="store_true", help="add the panel to the applications menu instead of opening it")
+    panel.set_defaults(func=_cmd_panel)
 
     record = commands.add_parser("record", help="record hand tracking to a JSONL file for replay and tuning")
     record.add_argument("file", type=Path)

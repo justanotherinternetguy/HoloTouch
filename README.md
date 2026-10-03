@@ -31,3 +31,7 @@ HoloWM is designed to be...
 - **quick** and **responsive,** making it an **actually viable replacement** for keyboard-mouse control
 
 HoloWM is the **closest** you will get to tony stark tossing windows around.
+
+# technical details
+
+# applications + future use

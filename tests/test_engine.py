@@ -546,6 +546,70 @@ def test_the_reading_climbing_as_the_pose_is_made_is_not_a_tilt(sim):
     assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
 
 
+def test_the_resting_tilt_is_where_the_fingers_come_to_a_stop(sim):
+    arm(sim)
+    # A hand still on its way into place goes on tilting for a second or more.
+    sim.hold(0.2, fingers(0))
+    lean(sim, 0, 40, seconds=1.0)
+    sim.hold(1.0, fingers(40))
+    assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
+    lean(sim, 40, 70)
+    sim.hold(0.5, fingers(70))
+    assert sim.backend.scrolled < -3
+
+
+def test_fingers_sagging_slowly_do_not_start_to_scroll(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(0))
+    lean(sim, 0, 15, seconds=2.5)
+    sim.hold(0.5, fingers(15))
+    assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
+    # A tilt is then measured from where they have sagged to.
+    lean(sim, 15, 45, seconds=0.2)
+    sim.hold(0.4, fingers(45))
+    assert sim.engine.overlay.hands[0].scroll == pytest.approx(top_speed_fraction(sim, 30), abs=0.08)
+
+
+def test_fingers_coming_back_past_their_resting_place_do_not_scroll_back(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(20))
+    lean(sim, 20, 100)
+    sim.hold(0.5, fingers(100))
+    # Back up, they stop 12 degrees short of where they started, and stay there.
+    lean(sim, 100, 8, seconds=0.2)
+    back = sim.backend.scrolled
+    sim.hold(1.0, fingers(8))
+    assert sim.backend.scrolled <= back and sim.engine.overlay.hands[0].scroll == 0
+    # That is where they rest now: leaning back from there scrolls up.
+    lean(sim, 8, -22)
+    sim.hold(0.6, fingers(-22))
+    assert sim.backend.scrolled > back + 3
+
+
+def test_leaning_right_back_from_a_tilt_scrolls_up_once_the_fingers_are_still(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(40))
+    lean(sim, 40, 100)
+    sim.hold(0.5, fingers(100))
+    lean(sim, 100, 5, seconds=0.2)
+    back = sim.backend.scrolled
+    sim.hold(1.0, fingers(5))
+    assert sim.backend.scrolled > back + 5
+
+
+def test_opening_the_hand_after_a_tilt_does_not_scroll_back(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(40))
+    lean(sim, 40, 100)
+    sim.hold(0.5, fingers(100))
+    lean(sim, 100, 40, seconds=0.2)
+    back = sim.backend.scrolled
+    # An open hand reads as fingers leaning further back than two held up do, and it is a moment
+    # before it reads as open.
+    sim.hold(0.5, ("open", *CENTRE, "Right", 10))
+    assert sim.backend.scrolled <= back and not sim.engine.overlay.scrolling
+
+
 def test_a_steep_tilt_keeps_scrolling_whatever_the_hand_is_read_as(sim):
     arm(sim)
     sim.hold(0.6, fingers(0))
@@ -613,12 +677,9 @@ def recorded_tilt(name: str) -> list[FrameSample]:
     return [FrameSample.from_dict({**frame, "seq": seq}) for seq, frame in enumerate(data[name])]
 
 
-@pytest.mark.parametrize("name", ["read_as_a_pinch", "read_as_a_fist"])
-def test_a_real_steep_tilt_scrolls_all_the_way_and_touches_no_window(name):
-    sim = Sim()
-    sim.backend.add_window(WindowInfo(1, 0, 0, *sim.screen, title="under the hand wherever it goes"))
-    frames = recorded_tilt(name)
-    started, held_still, previous = [], None, None
+def replay(sim, frames):
+    """Plays recorded frames through the engine. Gives the time and the gestures begun so far, after every tick."""
+    started, previous = [], None
     t, sent = frames[0].t_result, 0
     while t < frames[-1].t_result + 0.3:
         while sent < len(frames) and frames[sent].t_result <= t:
@@ -628,14 +689,38 @@ def test_a_real_steep_tilt_scrolls_all_the_way_and_touches_no_window(name):
         if sim.engine.active is not None and sim.engine.active is not previous:
             started.append(type(sim.engine.active).__name__)
         previous = sim.engine.active
+        yield t, started
+        t += 1 / 120
+
+
+@pytest.mark.parametrize("name", ["read_as_a_pinch", "read_as_a_fist"])
+def test_a_real_steep_tilt_scrolls_all_the_way_and_touches_no_window(name):
+    sim = Sim()
+    sim.backend.add_window(WindowInfo(1, 0, 0, *sim.screen, title="under the hand wherever it goes"))
+    held_still = None
+    for t, started in replay(sim, recorded_tilt(name)):
         if held_still is None and t >= 1.1:  # the fingers are up and still; the tilt begins after this
             held_still = sim.backend.scrolled
-        t += 1 / 120
     assert started == ["ScrollInteraction"]  # one scroll, and neither a grab nor a close
     assert abs(held_still) < 0.5
     assert sim.backend.scrolled < -18  # about a second at the top speed of 20 notches a second
     assert not [c for c in sim.backend.commands if c[0] != "warp_pointer"]
     assert sim.engine.active is None  # the hand opening at the end stopped it
+
+
+def test_a_real_tilt_held_short_of_steep_scrolls_all_the_way_and_closes_nothing():
+    # Two fingers held up for seven seconds, sagging by 15 degrees meanwhile, then tipped 70 to 110
+    # degrees and held for three: a hand that reads as a fist, with a tilt that is not always steep.
+    sim = Sim()
+    sim.backend.add_window(WindowInfo(1, 0, 0, *sim.screen, title="under the hand wherever it goes"))
+    held_still = None
+    for t, started in replay(sim, recorded_tilt("held_short_of_steep")):
+        if held_still is None and t >= 7.8:
+            held_still = sim.backend.scrolled
+    assert started == ["ScrollInteraction"]
+    assert abs(held_still) < 0.5
+    assert sim.backend.scrolled < -58  # three seconds at the top speed of 20 notches a second, without a pause
+    assert not [c for c in sim.backend.commands if c[0] != "warp_pointer"]
 
 
 def claw(roll=0.0, at=CENTRE, hand="right"):

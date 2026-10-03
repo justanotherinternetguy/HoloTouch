@@ -13,6 +13,10 @@ RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 MENU_PATH = CONFIG_DIR / "menu.toml"
 SOCKET_PATH = RUNTIME_DIR / "holowm.sock"
+# The control panel sends the output of the HoloWM it starts to LOG_PATH, and names that file to
+# it in this environment variable, so that a panel opened later knows where to read.
+LOG_PATH = CACHE_DIR / "holowm.log"
+LOG_ENV = "HOLOWM_LOG"
 
 
 @dataclass
@@ -138,7 +142,7 @@ class GestureConfig:
     # the face is partly hidden, and its fingers measure up to 0.72.
     chin_curl: float = 0.78
     chin_hold_ms: float = 250.0
-    # Scrolling is set by how far the two extended fingers tilt from where they first settled.
+    # Scrolling is set by how far the two extended fingers tilt from where they came to rest.
     scroll_dead_deg: float = 8.0  # tilt smaller than this does not scroll
     scroll_full_deg: float = 40.0  # tilt that gives the top speed
     scroll_speed: float = 20.0  # top speed in wheel notches per second

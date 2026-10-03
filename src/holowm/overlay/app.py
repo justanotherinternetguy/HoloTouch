@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import signal
@@ -21,11 +22,12 @@ from PySide6.QtNetwork import QLocalServer  # noqa: E402
 from PySide6.QtQuick import QQuickImageProvider, QQuickView  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
 
-from holowm.config import SOCKET_PATH, Config  # noqa: E402
+from holowm.config import LOG_ENV, SOCKET_PATH, Config  # noqa: E402
 from holowm.core.engine import Engine  # noqa: E402
 from holowm.launcher.camera import Shutter, camera_command  # noqa: E402
 from holowm.overlay.bridge import Bridge  # noqa: E402
 from holowm.overlay.images import WindowImageProvider, WindowImages  # noqa: E402
+from holowm.x11.fake import FakeBackend  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -207,10 +209,29 @@ class App:
         if name == "status":
             state = "paused" if self.engine.paused else "running"
             return f"{state}; {self._tracker_fps():.0f} fps; {len(self.engine.tracker.hands)} hands"
+        if name == "info":
+            return json.dumps(self._info())
         if name == "quit":
             QTimer.singleShot(0, self.qt.quit)
             return "bye"
         return f"unknown command: {name}"
+
+    def _info(self) -> dict:
+        """What the control panel shows of a running instance."""
+        active = self.engine.active
+        return {
+            "pid": os.getpid(),
+            "paused": self.engine.paused,
+            "lent": self._lent,
+            "fps": round(self._tracker_fps()),
+            "hands": len(self.engine.tracker.hands),
+            # The gesture in progress, named after its class: "move", "scroll", "knob"...
+            "gesture": type(active).__name__.removesuffix("Interaction").lower() if active is not None else "",
+            "debug": self.debug,
+            "practice": isinstance(self.backend, FakeBackend),
+            "error": self.source.error or "",
+            "log": os.environ.get(LOG_ENV, ""),
+        }
 
     # -- camera app --------------------------------------------------------------------------
 
