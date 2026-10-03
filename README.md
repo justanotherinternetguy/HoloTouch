@@ -4,6 +4,6 @@
 
 theme: _navigation_
 
-team HAASHtag's (Hendry, Ariana, Song han, Arthur)'s submission for BigRedHacks 2026.
+team HAASHtag's (Hendry, Ariana, Arthur, Song Han)'s submission for BigRedHacks 2026.
 
-> navigating
+> navigating HCI, reimagined.
