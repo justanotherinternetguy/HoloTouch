@@ -20,3 +20,12 @@ why do they suck?
   - boring! no one wants a bastardization of spatial HCI by forcing your hand to become a mouse cursor.
 - unintuitive gestures w/ low gesture count
 - no usage of 3D space and other non-manual controls
+
+# design goals
+
+HoloWM is designed to be...
+
+- **intuitive** with easy gestures for human hands
+- **extensible** with custom gesture creation and fine-tuning
+- **3D space-first** by using all the space around the user and using facial features to locate gestures
+- **quick** and **responsive,** making it an **actually viable replacement** for keyboard-mouse control
