@@ -1,6 +1,6 @@
-# HoloWM
+# HoloTouch
 
-> holographic window manager
+> we made jarvis, yo
 
 ![jarvis](4d914bbad1694af7e3d9cc78270a7f14.gif)
 
@@ -20,6 +20,8 @@ why do they suck?
   - boring! no one wants a bastardization of spatial HCI by forcing your hand to become a mouse cursor.
 - unintuitive gestures w/ low gesture count
 - no usage of 3D space and other non-manual controls
+
+all previous solutions are just an attempt to stuff spatial HCI **on top** of an outdated keyboard-mouse interaction framework.
 
 # design goals
 
