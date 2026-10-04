@@ -6,9 +6,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from holowm.config import PoseConfig
-from holowm.core.poses import Pose, PoseTracker, extract_features
-from holowm.tracker.types import HandSample
+from holotouch.config import PoseConfig
+from holotouch.core.poses import Pose, PoseTracker, extract_features
+from holotouch.tracker.types import HandSample
 
 HANDS = json.loads((Path(__file__).parent / "fixtures/real_hands.json").read_text())
 

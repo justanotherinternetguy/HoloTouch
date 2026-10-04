@@ -23,13 +23,13 @@
 
     uv run research/label_teacher.py recordings/session.jsonl
 
-Takes a recording made with `holowm record --frames`, reads the pictures in
+Takes a recording made with `holotouch record --frames`, reads the pictures in
 recordings/session.frames and writes recordings/session.teacher.jsonl: one line per picture,
 holding every hand the teacher found. Pictures already labelled are skipped, so a run that was
 stopped carries on where it left off.
 
 This runs in an environment of its own, which uv builds from the header above; it shares nothing
-with HoloWM's. The first run downloads the model (2.6 GB) to ~/.cache/holowm/wilor.
+with HoloTouch's. The first run downloads the model (2.6 GB) to ~/.cache/holotouch/wilor.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-WEIGHTS_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "holowm" / "wilor"
+WEIGHTS_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "holotouch" / "wilor"
 BONES = [(0, 1), (1, 2), (2, 3), (3, 4), (0, 5), (5, 6), (6, 7), (7, 8), (5, 9), (9, 10), (10, 11), (11, 12),
          (9, 13), (13, 14), (14, 15), (15, 16), (13, 17), (17, 18), (18, 19), (19, 20), (0, 17)]  # fmt: skip
 
@@ -169,7 +169,7 @@ def draw_overlays(recording: Path, frames_dir: Path, labels: list[dict], overlay
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("recording", type=Path, help="the .jsonl file written by `holowm record --frames`")
+    parser.add_argument("recording", type=Path, help="the .jsonl file written by `holotouch record --frames`")
     parser.add_argument("--every", type=int, default=1, metavar="N", help="label only every Nth picture")
     parser.add_argument("--limit", type=int, metavar="N", help="stop after labelling N pictures, to time the teacher")
     parser.add_argument("--confidence", type=float, default=0.3, help="lowest detector confidence that counts as a hand")
@@ -183,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
     frames_dir = args.recording.with_suffix(".frames")
     pictures = sorted(frames_dir.glob("*.jpg"))
     if not pictures:
-        print(f"no pictures in {frames_dir}; record with `holowm record --frames`", file=sys.stderr)
+        print(f"no pictures in {frames_dir}; record with `holotouch record --frames`", file=sys.stderr)
         return 2
     out_path = args.recording.with_suffix(".teacher.jsonl")
     done = {label["t_us"] for label in read_lines(out_path)}

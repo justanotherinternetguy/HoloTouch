@@ -7,13 +7,13 @@ from typing import Callable
 
 import numpy as np
 
-from holowm.config import Config
-from holowm.core.engine import Engine
-from holowm.launcher.launch import Launcher
-from holowm.launcher.macros import Macro, Macros
-from holowm.launcher.menu import MenuItem
-from holowm.tracker.types import FACE_CHEEKS, FACE_CHIN, FACE_FOREHEAD, FACE_OVAL, FaceSample, FrameSample, HandSample
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config
+from holotouch.core.engine import Engine
+from holotouch.launcher.launch import Launcher
+from holotouch.launcher.macros import Macro, Macros
+from holotouch.launcher.menu import MenuItem
+from holotouch.tracker.types import FACE_CHEEKS, FACE_CHIN, FACE_FOREHEAD, FACE_OVAL, FaceSample, FrameSample, HandSample
+from holotouch.x11.fake import FakeBackend
 
 _WRIST = (0.0, 0.04, 0.0)
 _THUMB_BASE = [(-0.02, 0.02, -0.01), (-0.04, 0.0, -0.015), (-0.055, -0.02, -0.02)]
@@ -111,7 +111,7 @@ def screen_point(cfg: Config, screen, u: float, v: float) -> tuple[float, float]
     return float(n[0] * screen[0]), float(n[1] * screen[1])
 
 
-# Reference face size in metres (forehead to chin, cheek to cheek), as holowm.core.face assumes.
+# Reference face size in metres (forehead to chin, cheek to cheek), as holotouch.core.face assumes.
 _FACE_M = (0.177, 0.153)
 
 

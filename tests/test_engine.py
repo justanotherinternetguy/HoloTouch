@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from holowm.config import Config
-from holowm.core.actions import WindowInfo
-from holowm.core.interactions import CameraInteraction, ClickInteraction, MoveInteraction, ScrollInteraction
-from holowm.launcher.menu import MenuItem
-from holowm.tracker.types import FrameSample
+from holotouch.config import Config
+from holotouch.core.actions import WindowInfo
+from holotouch.core.interactions import CameraInteraction, ClickInteraction, MoveInteraction, ScrollInteraction
+from holotouch.launcher.menu import MenuItem
+from holotouch.tracker.types import FrameSample
 from synth import Sim, make_face, screen_point
 
 WIN = dict(x=500, y=400, w=800, h=600)
@@ -1411,7 +1411,7 @@ def test_click_works_off_any_window_and_on_a_fullscreen_one(sim):
     assert sim.backend.commands == [("button_down", *CENTRE), ("button_up",)]
 
 
-def test_mouse_button_is_let_go_when_the_hand_is_lost_or_holowm_paused(sim):
+def test_mouse_button_is_let_go_when_the_hand_is_lost_or_holotouch_paused(sim):
     aim(sim)
     sim.hold(0.2, ("press", *CENTRE))
     sim.hold(0.5)
@@ -1583,7 +1583,7 @@ def test_dictation_carries_on_through_a_pose_misread_for_a_moment(sim):
     assert not sim.engine.dictating
 
 
-def test_dictation_ends_when_the_hand_is_lost_or_holowm_paused(sim):
+def test_dictation_ends_when_the_hand_is_lost_or_holotouch_paused(sim):
     arm(sim)
     sim.hold(0.6, ("y_sign", *CENTRE))
     sim.hold(0.5)

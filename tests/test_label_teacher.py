@@ -8,8 +8,8 @@ import cv2
 import numpy as np
 import pytest
 
-from holowm.tracker.frames import FrameWriter, frame_name
-from holowm.tracker.types import FrameSample, HandSample
+from holotouch.tracker.frames import FrameWriter, frame_name
+from holotouch.tracker.types import FrameSample, HandSample
 
 SCRIPT = Path(__file__).parents[1] / "research" / "label_teacher.py"
 TIMES = [9000.25 + i / 30.0 for i in range(6)]
@@ -99,5 +99,5 @@ def test_overlay_shows_both_models_on_the_picture(script, recording):
 def test_a_recording_without_pictures_is_refused(script, tmp_path, capsys):
     (tmp_path / "bare.jsonl").write_text("")
     assert script.main([str(tmp_path / "bare.jsonl")]) == 2
-    assert "holowm record --frames" in capsys.readouterr().err
+    assert "holotouch record --frames" in capsys.readouterr().err
     assert StubTeacher.made == 0

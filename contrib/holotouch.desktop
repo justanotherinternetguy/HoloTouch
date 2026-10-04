@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=HoloTouch
+Comment=Hand-gesture window control
+Exec=holotouch run
+Icon=input-gaming
+Terminal=false
+X-GNOME-Autostart-enabled=true

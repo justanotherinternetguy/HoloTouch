@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>HoloWM · reach out and grab it</title>
-<meta name="description" content="HoloWM lets you control the windows on a Linux desktop with your hands in the air. A webcam watches your hands, and windows move, resize, close, scroll and switch.">
+<title>HoloTouch · reach out and grab it</title>
+<meta name="description" content="HoloTouch lets you control the windows on a Linux desktop with your hands in the air. A webcam watches your hands, and windows move, resize, close, scroll and switch.">
 <meta name="theme-color" content="#FBF3E4">
-<link rel="icon" href="holowm.svg" type="image/svg+xml">
+<link rel="icon" href="holotouch.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 <script src="js/hand.js" defer></script>
 <script src="js/stages.js" defer></script>
@@ -19,7 +19,7 @@
   <div class="wrap nav__row">
     <a class="brand" href="#top">
       <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="24" cy="32" r="13" fill="none" stroke="#4AA8FF" stroke-width="6"/><circle cx="40" cy="32" r="13" fill="none" stroke="#FF6B5C" stroke-width="6"/></svg>
-      HoloWM
+      HoloTouch
     </a>
     <nav class="nav__links" aria-label="Sections">
       <a href="#gestures">Gestures</a>
@@ -27,7 +27,7 @@
       <a href="#how">How it works</a>
       <a href="#start">Get started</a>
     </nav>
-    <a class="btn btn--small" href="https://github.com/justanotherinternetguy/HoloWM">
+    <a class="btn btn--small" href="https://github.com/justanotherinternetguy/HoloTouch">
       GitHub
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12 L19 12 M13 6 L19 12 L13 18"/></svg>
     </a>
@@ -43,7 +43,7 @@
     <h1>Reach out and
       <span class="held">grab<span class="cur cur--r is-pinching" aria-hidden="true"><span class="cur__ring"><span class="cur__dot"></span></span><span class="cur__tag">R</span></span></span>
       it</h1>
-    <p class="lead">HoloWM lets you control the windows on your desktop with your hands in the air. A webcam watches them, and windows move, resize, close, scroll and switch.</p>
+    <p class="lead">HoloTouch lets you control the windows on your desktop with your hands in the air. A webcam watches them, and windows move, resize, close, scroll and switch.</p>
     <div class="hero__actions">
       <a class="btn btn--main" href="#gestures">See the gestures</a>
       <a class="btn" href="#start">Get started</a>
@@ -55,7 +55,7 @@
           <div class="desk__bar">
             <span>Applications</span>
             <span class="desk__pips"><i class="on"></i><i></i><i></i><i></i></span>
-            <span class="desk__name"><i></i>HoloWM</span>
+            <span class="desk__name"><i></i>HoloTouch</span>
           </div>
 
           <div class="win win--files" style="transform: translate(572px, 316px); width: 250px; height: 180px">
@@ -71,8 +71,8 @@
           </div>
 
           <div class="win win--browser" data-window="browser">
-            <div class="win__bar"><span>HoloWM · Browser</span><span class="win__dots"><i></i><i></i><i></i></span></div>
-            <div class="win__url"><span>holowm/docs/overview</span></div>
+            <div class="win__bar"><span>HoloTouch · Browser</span><span class="win__dots"><i></i><i></i><i></i></span></div>
+            <div class="win__url"><span>holotouch/docs/overview</span></div>
             <div class="win__page">
               <i class="win__heading" style="width: 58%"></i>
               <i style="width: 94%"></i><i style="width: 88%"></i><i style="width: 91%"></i><i style="width: 52%"></i>
@@ -84,7 +84,7 @@
           <div class="win win--terminal" data-window="terminal">
             <div class="win__bar"><span>Terminal</span><span class="win__dots"><i></i><i></i><i></i></span></div>
             <div class="win__term">
-              <span>~ $ holowm doctor</span>
+              <span>~ $ holotouch doctor</span>
               <i style="width: 62%"></i><i style="width: 48%"></i><i style="width: 70%"></i><i style="width: 36%"></i>
             </div>
           </div>
@@ -121,7 +121,7 @@
   <div class="wrap">
     <div class="band__head">
       <h2>A hand is not a mouse</h2>
-      <p class="lead">Most attempts at spatial control map your hand to the pointer and stop there: a few awkward gestures, laid on top of an interface built for a keyboard and mouse. HoloWM starts from what hands already do.</p>
+      <p class="lead">Most attempts at spatial control map your hand to the pointer and stop there: a few awkward gestures, laid on top of an interface built for a keyboard and mouse. HoloTouch starts from what hands already do.</p>
     </div>
     <div class="goals">
       <article class="card goal">
@@ -270,7 +270,7 @@
     </div>
     <div class="shapes__text">
       <h2>Eleven hand shapes, read by rule</h2>
-      <p class="lead">From 21 landmarks a hand, HoloWM measures how far the thumb is from each fingertip and how curled each finger is, in palm lengths. Hand-written rules turn that into a pose.</p>
+      <p class="lead">From 21 landmarks a hand, HoloTouch measures how far the thumb is from each fingertip and how curled each finger is, in palm lengths. Hand-written rules turn that into a pose.</p>
       <div class="shapes__list" role="group" aria-label="Hand shape">
         <button type="button" class="pill" data-shape="open" data-note="An open palm. Swept fast to the right, it presses Enter." aria-pressed="true">Open</button>
         <button type="button" class="pill" data-shape="index" data-note="Thumb and index together: grabs the window under the hand." aria-pressed="false">Index pinch</button>
@@ -387,14 +387,14 @@
   <div class="wrap start">
     <div class="start__text">
       <h2>Get started</h2>
-      <p class="lead">HoloWM runs on a laptop CPU with an ordinary webcam.</p>
+      <p class="lead">HoloTouch runs on a laptop CPU with an ordinary webcam.</p>
       <h3>What it needs</h3>
       <ul class="needs">
         <li>Linux with an X11 session, xfwm4 and a running compositor</li>
         <li>A webcam</li>
         <li>Python 3.12</li>
       </ul>
-      <p class="fine">A few tools are optional, each for one feature: smooth scrolling, volume, dictation and the rest. <code>holowm doctor</code> reports which are present.</p>
+      <p class="fine">A few tools are optional, each for one feature: smooth scrolling, volume, dictation and the rest. <code>holotouch doctor</code> reports which are present.</p>
     </div>
     <div class="start__side">
       <div class="term">
@@ -402,17 +402,17 @@
           <span>Terminal</span>
           <button type="button" class="term__copy" id="copy">Copy</button>
         </div>
-        <pre id="commands"><span class="term__p">$</span> git clone https://github.com/justanotherinternetguy/HoloWM
-<span class="term__p">$</span> cd HoloWM
+        <pre id="commands"><span class="term__p">$</span> git clone https://github.com/justanotherinternetguy/HoloTouch
+<span class="term__p">$</span> cd HoloTouch
 <span class="term__p">$</span> uv sync
-<span class="term__p">$</span> uv run holowm doctor
-<span class="term__p">$</span> uv run holowm panel</pre>
+<span class="term__p">$</span> uv run holotouch doctor
+<span class="term__p">$</span> uv run holotouch panel</pre>
       </div>
       <dl class="commands">
-        <div><dt><code>holowm panel</code></dt><dd>Open the control panel: start and stop, the gesture guide, and practice.</dd></div>
-        <div><dt><code>holowm run</code></dt><dd>Start tracking and the overlay.</dd></div>
-        <div><dt><code>holowm run --dry-run</code></dt><dd>Practice on two stand-in windows. Your real ones are left alone.</dd></div>
-        <div><dt><code>holowm doctor</code></dt><dd>Check the machine, and measure the tracking rate.</dd></div>
+        <div><dt><code>holotouch panel</code></dt><dd>Open the control panel: start and stop, the gesture guide, and practice.</dd></div>
+        <div><dt><code>holotouch run</code></dt><dd>Start tracking and the overlay.</dd></div>
+        <div><dt><code>holotouch run --dry-run</code></dt><dd>Practice on two stand-in windows. Your real ones are left alone.</dd></div>
+        <div><dt><code>holotouch doctor</code></dt><dd>Check the machine, and measure the tracking rate.</dd></div>
       </dl>
     </div>
   </div>
@@ -424,10 +424,10 @@
   <div class="wrap foot__row">
     <div class="brand">
       <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="24" cy="32" r="13" fill="none" stroke="#4AA8FF" stroke-width="6"/><circle cx="40" cy="32" r="13" fill="none" stroke="#FF6B5C" stroke-width="6"/></svg>
-      HoloWM
+      HoloTouch
     </div>
     <p>Made by team HAASHtag (Hendry, Ariana, Arthur and Song Han) for BigRedHacks 2026.</p>
-    <p><a href="https://github.com/justanotherinternetguy/HoloWM">Source on GitHub</a> · Set in Fredoka, Figtree and DM Mono, under the Open Font License.</p>
+    <p><a href="https://github.com/justanotherinternetguy/HoloTouch">Source on GitHub</a> · Set in Fredoka, Figtree and DM Mono, under the Open Font License.</p>
   </div>
 </footer>
 

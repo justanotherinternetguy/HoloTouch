@@ -6,14 +6,14 @@ import json
 import numpy as np
 import pytest
 
-from holowm.config import Config
-from holowm.core.hands import HandTracker
-from holowm.core.pose_model import CLASSES, PoseModel, landmark_features, train
-from holowm.core.poses import Pose
-from holowm.tools.prompts import Prompter
-from holowm.tools.score import load_session
-from holowm.tools.train import examples, held_out
-from holowm.tracker.types import FrameSample, HandSample
+from holotouch.config import Config
+from holotouch.core.hands import HandTracker
+from holotouch.core.pose_model import CLASSES, PoseModel, landmark_features, train
+from holotouch.core.poses import Pose
+from holotouch.tools.prompts import Prompter
+from holotouch.tools.score import load_session
+from holotouch.tools.train import examples, held_out
+from holotouch.tracker.types import FrameSample, HandSample
 from synth import make_hand
 
 SCREEN = (2880, 1800)

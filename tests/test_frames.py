@@ -6,13 +6,13 @@ import cv2
 import numpy as np
 import pytest
 
-from holowm.cli import main
-from holowm.config import Config
-from holowm.tracker import frames
-from holowm.tracker.frames import FrameWriter, frame_name
-from holowm.tracker.process import pump
-from holowm.tracker.source import RecordingSource, TrackerSource
-from holowm.tracker.types import FrameSample
+from holotouch.cli import main
+from holotouch.config import Config
+from holotouch.tracker import frames
+from holotouch.tracker.frames import FrameWriter, frame_name
+from holotouch.tracker.process import pump
+from holotouch.tracker.source import RecordingSource, TrackerSource
+from holotouch.tracker.types import FrameSample
 
 
 def picture(seed: int = 0) -> np.ndarray:
@@ -128,15 +128,15 @@ class StubSource:
 
 
 @pytest.fixture
-def holowm(monkeypatch, tmp_path):
+def holotouch(monkeypatch, tmp_path):
     monkeypatch.setattr(StubSource, "made", [])
-    monkeypatch.setattr("holowm.tracker.source.TrackerSource", StubSource)
+    monkeypatch.setattr("holotouch.tracker.source.TrackerSource", StubSource)
     return lambda *args: main(["--config", str(tmp_path / "none.toml"), *args])
 
 
 @pytest.fixture
-def record(holowm):
-    return lambda *args: holowm("record", *args, "--seconds", "0.01")
+def record(holotouch):
+    return lambda *args: holotouch("record", *args, "--seconds", "0.01")
 
 
 def test_recording_source_writes_what_it_passes_on(tmp_path):
@@ -157,12 +157,12 @@ def test_record_writes_the_samples_it_is_sent(record, tmp_path, capsys):
     assert "wrote 3 frames" in capsys.readouterr().out and StubSource.made[0].stopped
 
 
-def test_run_refuses_recordings_it_cannot_make(holowm, tmp_path, capsys):
-    assert holowm("run", "--replay", str(tmp_path / "old.jsonl"), "--record", str(tmp_path / "new.jsonl")) == 2
-    assert holowm("run", "--dry-run", "--frames") == 2
+def test_run_refuses_recordings_it_cannot_make(holotouch, tmp_path, capsys):
+    assert holotouch("run", "--replay", str(tmp_path / "old.jsonl"), "--record", str(tmp_path / "new.jsonl")) == 2
+    assert holotouch("run", "--dry-run", "--frames") == 2
     (tmp_path / "session.frames").mkdir()
     (tmp_path / "session.frames" / frame_name(1.0)).write_bytes(b"")
-    assert holowm("run", "--dry-run", "--record", str(tmp_path / "session.jsonl"), "--frames") == 2
+    assert holotouch("run", "--dry-run", "--record", str(tmp_path / "session.jsonl"), "--frames") == 2
     assert StubSource.made == [] and list(tmp_path.glob("*.jsonl")) == []
 
 

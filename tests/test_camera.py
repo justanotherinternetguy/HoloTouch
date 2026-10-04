@@ -1,9 +1,9 @@
 """Taking a photo in a camera app that was just started, against the fake window backend."""
 
-from holowm.config import Config
-from holowm.core.actions import WindowInfo
-from holowm.launcher.camera import Shutter, camera_command
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config
+from holotouch.core.actions import WindowInfo
+from holotouch.launcher.camera import Shutter, camera_command
+from holotouch.x11.fake import FakeBackend
 
 APP = WindowInfo(7, 200, 100, 800, 640, title="Camera")
 

@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from holowm.config import Config
-from holowm.core.actions import WindowInfo
-from holowm.tools.prompts import Prompter
-from holowm.tools.score import Session, format_report, load_session, score
-from holowm.tracker.types import FrameSample
+from holotouch.config import Config
+from holotouch.core.actions import WindowInfo
+from holotouch.tools.prompts import Prompter
+from holotouch.tools.score import Session, format_report, load_session, score
+from holotouch.tracker.types import FrameSample
 from synth import Sim, make_face, make_hand, screen_point
 
 SCREEN = (2880, 1800)
@@ -140,7 +140,7 @@ def test_a_session_is_loaded_from_a_recording_and_the_labels_beside_it(tmp_path)
     made = session(["open", "fist"])
     path = tmp_path / "ada-1.jsonl"
     path.write_text("".join(json.dumps(frame.to_dict()) + "\n" for frame in made.frames))
-    with pytest.raises(ValueError, match="holowm collect"):
+    with pytest.raises(ValueError, match="holotouch collect"):
         load_session(path)
     prompter = Prompter(rounds=1)
     prompter.done = made.steps

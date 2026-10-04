@@ -4,10 +4,10 @@ from dataclasses import replace
 
 import numpy as np
 
-from holowm.config import Config
-from holowm.core.hands import HandTracker
-from holowm.core.poses import Pose, PoseTracker, extract_features
-from holowm.tracker.types import THUMB_TIP, FrameSample
+from holotouch.config import Config
+from holotouch.core.hands import HandTracker
+from holotouch.core.poses import Pose, PoseTracker, extract_features
+from holotouch.tracker.types import THUMB_TIP, FrameSample
 from synth import make_hand, world_landmarks
 
 SCREEN = (2880, 1800)

@@ -3,10 +3,10 @@ from collections import Counter
 
 import pytest
 
-from holowm.config import Config
-from holowm.core.overlay_state import OverlayState
-from holowm.overlay.bridge import Bridge
-from holowm.tools.prompts import FOLLOW_S, HOLD_S, READY_S, SCRIPT, Prompter
+from holotouch.config import Config
+from holotouch.core.overlay_state import OverlayState
+from holotouch.overlay.bridge import Bridge
+from holotouch.tools.prompts import FOLLOW_S, HOLD_S, READY_S, SCRIPT, Prompter
 
 
 def run(prompter, start=50.0, until=None):

@@ -5,18 +5,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from holowm.config import Config, PoseConfig
-from holowm.core.actions import WindowInfo
-from holowm.core.engine import Engine
-from holowm.core.interactions import SpellInteraction
-from holowm.core.letters import LETTERS
-from holowm.core.overlay_state import OverlayState
-from holowm.core.poses import Pose, PoseTracker, extract_features
-from holowm.launcher.apps import covered, installed_apps, spelling as letters_of
-from holowm.launcher.macros import Macro, Macros, load_macros, macro_from_dict
-from holowm.overlay.bridge import Bridge
-from holowm.tools.score import score
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config, PoseConfig
+from holotouch.core.actions import WindowInfo
+from holotouch.core.engine import Engine
+from holotouch.core.interactions import SpellInteraction
+from holotouch.core.letters import LETTERS
+from holotouch.core.overlay_state import OverlayState
+from holotouch.core.poses import Pose, PoseTracker, extract_features
+from holotouch.launcher.apps import covered, installed_apps, spelling as letters_of
+from holotouch.launcher.macros import Macro, Macros, load_macros, macro_from_dict
+from holotouch.overlay.bridge import Bridge
+from holotouch.tools.score import score
+from holotouch.x11.fake import FakeBackend
 from synth import Sim, make_hand
 from test_score import session
 
@@ -180,7 +180,7 @@ def test_nothing_else_starts_while_spelling_and_a_lost_hand_ends_it():
     assert sim.engine.active is None
 
 
-def test_the_model_that_comes_with_holowm_is_what_the_engine_reads_with(tmp_path):
+def test_the_model_that_comes_with_holotouch_is_what_the_engine_reads_with(tmp_path):
     sim = Sim(macros=[REELS])
     assert sim.engine.letters.classes == LETTERS
     cfg = Config()
@@ -352,8 +352,8 @@ def test_installed_apps_are_those_the_applications_menu_lists(tmp_path, monkeypa
     desktop_file(system, "zoom.desktop", Name="Zoom")
     desktop_file(system, "2048.desktop", Name="2048")
     desktop_file(system, "quiet.desktop", Name="Quiet", NoDisplay="true")
-    desktop_file(system, "gone.desktop", Name="Gone", TryExec="holowm-no-such-program")
-    desktop_file(system, "left.desktop", Name="Left Behind", Exec="holowm-no-such-program --flag %U")
+    desktop_file(system, "gone.desktop", Name="Gone", TryExec="holotouch-no-such-program")
+    desktop_file(system, "left.desktop", Name="Left Behind", Exec="holotouch-no-such-program --flag %U")
     desktop_file(system, "gnome.desktop", Name="Gnome Only", OnlyShowIn="GNOME;")
     desktop_file(system, "xfce.desktop", Name="Xfce Only", OnlyShowIn="XFCE;")
     desktop_file(system, "notxfce.desktop", Name="Not Xfce", NotShowIn="XFCE;")
@@ -380,8 +380,8 @@ def test_of_two_things_spelt_alike_the_macro_or_the_first_app_is_kept():
 
 
 def test_the_installed_apps_are_looked_for_unless_the_config_says_not_to(monkeypatch):
-    monkeypatch.setattr("holowm.launcher.macros.load_macros", lambda: [])
-    monkeypatch.setattr("holowm.core.engine.installed_apps", lambda: [FIREFOX])
+    monkeypatch.setattr("holotouch.launcher.macros.load_macros", lambda: [])
+    monkeypatch.setattr("holotouch.core.engine.installed_apps", lambda: [FIREFOX])
     assert Engine(Config(), FakeBackend(SCREEN)).macros.apps == [FIREFOX]
     cfg = Config()
     cfg.spell.apps = False

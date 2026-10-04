@@ -5,10 +5,10 @@ import time
 
 import pytest
 
-from holowm.config import Config
-from holowm.launcher import dictate
-from holowm.launcher.dictate import Dictation, read_text
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config
+from holotouch.launcher import dictate
+from holotouch.launcher.dictate import Dictation, read_text
+from holotouch.x11.fake import FakeBackend
 
 # Writes `seconds` of silence to the file it is given, as a recorder writes what it hears, then waits to be stopped.
 _RECORDER = "import sys, time; f = open(sys.argv[2], 'wb'); f.write(bytes(int(32000 * float(sys.argv[1])))); f.flush(); time.sleep(60)"

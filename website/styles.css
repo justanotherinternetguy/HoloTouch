@@ -1,4 +1,4 @@
-/* HoloWM's website, in the interface's own language (src/holowm/theme.py): cream and ink carry
+/* HoloTouch's website, in the interface's own language (src/holotouch/theme.py): cream and ink carry
    the page, and colour marks what a hand is doing. Sky is the left hand, coral the right, butter
    is progress, mint is done and running, lilac opens further. */
 
@@ -149,7 +149,7 @@ code { font-family: var(--mono); font-size: 0.92em; }
 .cur--r .cur__tag { left: calc(var(--d) / 2 - 12px); border-radius: 4px 50% 50% 50%; }
 .cur--l .cur__tag { right: calc(var(--d) / 2 - 12px); border-radius: 50% 4px 50% 50%; }
 
-/* The stand-in desktop. Its contents are kept grey, so the five accents only ever mean HoloWM. */
+/* The stand-in desktop. Its contents are kept grey, so the five accents only ever mean HoloTouch. */
 .desk-frame { margin-top: 56px; border: 2.5px solid var(--ink); border-radius: 28px; box-shadow: 0 6px 0 var(--ink); overflow: hidden; background: #3C4A5E; }
 .desk { position: relative; aspect-ratio: 880 / 560; overflow: hidden; text-align: left; }
 .desk__inner {

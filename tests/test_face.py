@@ -6,13 +6,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from holowm.config import Config
-from holowm.core.actions import WindowInfo
-from holowm.core.engine import Engine
-from holowm.core.face import FaceTrack
-from holowm.core.hands import HandTracker
-from holowm.tracker.types import FACE_CHEEKS, FaceSample, FrameSample, HandSample
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config
+from holotouch.core.actions import WindowInfo
+from holotouch.core.engine import Engine
+from holotouch.core.face import FaceTrack
+from holotouch.core.hands import HandTracker
+from holotouch.tracker.types import FACE_CHEEKS, FaceSample, FrameSample, HandSample
+from holotouch.x11.fake import FakeBackend
 from synth import make_face, make_hand, screen_point
 
 SCREEN = (2880, 1800)

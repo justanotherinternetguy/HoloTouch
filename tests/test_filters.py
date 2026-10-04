@@ -2,8 +2,8 @@ import math
 
 import numpy as np
 
-from holowm.config import FilterConfig
-from holowm.core.filters import MotionTrack, OneEuro
+from holotouch.config import FilterConfig
+from holotouch.core.filters import MotionTrack, OneEuro
 
 
 def test_one_euro_removes_jitter_at_rest():

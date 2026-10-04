@@ -1,12 +1,12 @@
-"""What the control panel makes of HoloWM and of the doctor. Needs no display, and starts no HoloWM."""
+"""What the control panel makes of HoloTouch and of the doctor. Needs no display, and starts no HoloTouch."""
 
 import os
 import subprocess
 import sys
 
-from holowm.config import Config
-from holowm.panel import controller, desktop
-from holowm.panel.controller import COACH, Controller, describe_check, parse_check
+from holotouch.config import Config
+from holotouch.panel import controller, desktop
+from holotouch.panel.controller import COACH, Controller, describe_check, parse_check
 
 
 def info(**changes):
@@ -34,7 +34,7 @@ def test_doctor_lines_become_checks():
     assert parse_check("       measuring tracker for 6 s (the camera light will turn on)...") is None
 
 
-def test_panel_shows_what_a_running_holowm_says_of_itself():
+def test_panel_shows_what_a_running_holotouch_says_of_itself():
     panel = Controller(Config())
     assert (panel.state, panel.fps, panel.debug) == ("stopped", 0, False)
     panel.on_info(info())
@@ -44,7 +44,7 @@ def test_panel_shows_what_a_running_holowm_says_of_itself():
     assert (panel.state, panel.lent, panel.error) == ("paused", True, "camera stopped delivering frames")
 
 
-def test_a_holowm_that_does_not_answer_is_only_gone_once_its_process_is():
+def test_a_holotouch_that_does_not_answer_is_only_gone_once_its_process_is():
     panel = Controller(Config())
     panel.on_info(info())
     panel.on_info(None)
@@ -55,9 +55,9 @@ def test_a_holowm_that_does_not_answer_is_only_gone_once_its_process_is():
 
 
 def test_a_start_that_fails_says_so_and_shows_the_log(tmp_path, monkeypatch):
-    monkeypatch.setattr(controller, "LOG_PATH", tmp_path / "cache" / "holowm.log")
+    monkeypatch.setattr(controller, "LOG_PATH", tmp_path / "cache" / "holotouch.log")
     monkeypatch.setattr(
-        controller, "holowm_command", lambda config, *args: [sys.executable, "-c", f"raise SystemExit('no {args[0]}')"]
+        controller, "holotouch_command", lambda config, *args: [sys.executable, "-c", f"raise SystemExit('no {args[0]}')"]
     )
     panel = Controller(Config(), error="left from before")
     panel.setPractice(True)
@@ -72,9 +72,9 @@ def test_a_start_that_fails_says_so_and_shows_the_log(tmp_path, monkeypatch):
 def test_desktop_entry_opens_the_panel_with_this_interpreter(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     path = desktop.install_launcher()
-    assert path == tmp_path / "applications" / "holowm.desktop"
+    assert path == tmp_path / "applications" / "holotouch.desktop"
     lines = path.read_text().splitlines()
-    assert f'Exec="{sys.executable}" -m holowm.cli panel' in lines
+    assert f'Exec="{sys.executable}" -m holotouch.cli panel' in lines
     assert f"Icon={desktop.ICON}" in lines and desktop.ICON.exists()
 
 
@@ -85,7 +85,7 @@ def test_checks_are_worded_for_people_and_say_what_to_do():
     assert missing["title"] == "No camera found" and "config.toml" in missing["fix"]
     assert missing["raw"] == "[fail] camera: /dev/video9 does not exist"  # the doctor's own words stay to hand
     barred = describe_check(parse_check("[FAIL] camera access: /dev/video0"))
-    assert barred["title"] == "HoloWM isn't allowed to use the camera"
+    assert barred["title"] == "HoloTouch isn't allowed to use the camera"
     assert describe_check(parse_check("[warn] camera mode 1280x720: not listed"))["title"].startswith("The camera doesn't list")
     assert describe_check(parse_check("[ok  ] X extension XTEST"))["title"] == "X extension XTEST"
     # A check the panel has no words for is shown as the doctor put it.
@@ -93,7 +93,7 @@ def test_checks_are_worded_for_people_and_say_what_to_do():
     assert (new["title"], new["fix"]) == ("Something new", "went oddly")
 
 
-def test_a_running_holowm_with_no_frames_is_waiting_for_the_camera_then_missing_it(monkeypatch):
+def test_a_running_holotouch_with_no_frames_is_waiting_for_the_camera_then_missing_it(monkeypatch):
     clock = [100.0]
     monkeypatch.setattr(controller.time, "monotonic", lambda: clock[0])
     panel = Controller(Config())

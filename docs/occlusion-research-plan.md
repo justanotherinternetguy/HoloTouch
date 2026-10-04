@@ -1,12 +1,12 @@
 # Improving hand tracking under occlusion: research review and plan
 
 Written 2026-10-03. This document records a literature review, an assessment of which research can
-help HoloWM, and a step-by-step plan for training a small occlusion-aware model by distilling a
+help HoloTouch, and a step-by-step plan for training a small occlusion-aware model by distilling a
 large offline one. Recording and labelling (Phases 1 and 3) now have code; see Status.
 
 ## Summary
 
-- HoloWM tracks hands with MediaPipe on a laptop CPU. Its main accuracy problem is occlusion: when a
+- HoloTouch tracks hands with MediaPipe on a laptop CPU. Its main accuracy problem is occlusion: when a
   fingertip is hidden, MediaPipe still reports a confident position, and the engine acts on it.
 - None of the state-of-the-art occlusion-robust models can replace MediaPipe live on this machine.
   They need a discrete GPU, use future frames, or have no released weights.
@@ -24,10 +24,10 @@ Updated 2026-10-03. No footage has been recorded with the real camera yet. Every
 from ten photos played through the real tracker in place of the camera (400 pictures, of which 100
 were labelled).
 
-- **Phase 1 is built.** `holowm record FILE.jsonl --frames` saves every camera picture in
+- **Phase 1 is built.** `holotouch record FILE.jsonl --frames` saves every camera picture in
   `FILE.frames/`, named by capture time in microseconds. All 364 landmark frames of the test
   recording matched a picture, tracking stayed at 30 fps and 19 ms, and stopping with Ctrl-C lost
-  nothing. `holowm run --record FILE.jsonl --frames` records the same while HoloWM runs, which is
+  nothing. `holotouch run --record FILE.jsonl --frames` records the same while HoloTouch runs, which is
   how to record the natural sessions of Phase 2 and to see the hands and gestures while recording.
 - **Phase 3 is built up to the go/no-go check.** `research/label_teacher.py` runs WiLoR-mini with
   its own detector over a recording's pictures, writes `FILE.teacher.jsonl`, resumes a stopped run,
@@ -40,7 +40,7 @@ were labelled).
 - **Handedness needs no conversion.** Phase 3 step 6 expected an inversion and was wrong. MediaPipe
   names a hand by how it looks in the picture it is given: its own `right_hands.jpg` sample reads
   "Right" as photographed and "Left" when mirrored. WiLoR does the same, and the two agreed on all 84
-  matched hands. On HoloWM's mirrored frames both therefore name the user's other hand.
+  matched hands. On HoloTouch's mirrored frames both therefore name the user's other hand.
 - **Joint order matches** (step 7): matched joint for joint, the two models' points lie 0.06 to 0.14
   palm lengths apart in the picture.
 - **Axes match** (step 8): the best-fit rotation between the two models' 3D points is never a
@@ -65,12 +65,12 @@ were labelled).
   MediaPipe was right and the teacher drew a finger that is not there.
 - **The teacher is better on sideways pinches.** With the hand side-on and all fingertips meeting
   the thumb (39.8 and 4.2 s), MediaPipe put thumb and index 0.37 to 0.50 palm lengths apart in 3D
-  and the teacher 0.04 to 0.10; the pictures show them touching. At 39.8 s HoloWM read the pinch
+  and the teacher 0.04 to 0.10; the pictures show them touching. At 39.8 s HoloTouch read the pinch
   0.3 s late.
 - The teacher also errs the other way: at 24.5 s it reads 0.21 where the picture shows a clear gap
   between thumb and fingers.
 - The problem is small in this sample. The teacher has the fingers together while MediaPipe has
-  them past the release point (0.42) in 3 of 286 frames. HoloWM's own tracker shows two short
+  them past the release point (0.42) in 3 of 286 frames. HoloTouch's own tracker shows two short
   interruptions of an index pinch that resume, and in neither is it clear the fingers stayed closed.
 - MediaPipe lost the hand in 67 of 1,510 frames; the teacher found a hand MediaPipe missed in 3 of
   302.
@@ -78,10 +78,10 @@ were labelled).
 Scrolling (13.1 to 18.0 s of the same recording, every picture labelled, 147 frames):
 
 - **What breaks.** When the two fingers tip steeply down (tilt past 90°, 20 frames), MediaPipe reads
-  the middle finger as bent in half the frames. The pose leaves "two-finger", and HoloWM pauses the
+  the middle finger as bent in half the frames. The pose leaves "two-finger", and HoloTouch pauses the
   scroll and then ends it (16.0 to 16.3 s when the recording is replayed through the engine).
 - **The teacher reads the middle finger better** (straight in 85% of steep frames against 50%).
-- **Fed to HoloWM's pose rules, the teacher's hands would scroll worse.** It reads the ring or
+- **Fed to HoloTouch's pose rules, the teacher's hands would scroll worse.** It reads the ring or
   pinky as straight in every steep frame and in 81% of moderately tilted ones (MediaPipe: 5% and
   0%), which the rules call an open hand, and an open hand ends scrolling. It keeps the two-finger
   pose in 3 of 20 steep frames against MediaPipe's 12. The teacher may be right about those fingers:
@@ -121,12 +121,12 @@ named as the main one was fixed in the gesture. What replaced it:
   single frames, trained on `scroll-1` and `hard-1` with rough labels, told a steep two-finger tilt
   from a real pinch or fist: 292 of 297 held-out steep frames right, 0 of 388 pinch frames and 2 of
   285 fist frames called steep, and all 18 steep frames of the other recording recognised.
-- `holowm collect` records while prompting one pose after another, so the recording says what the
+- `holotouch collect` records while prompting one pose after another, so the recording says what the
   hand was doing, and whose hand it was.
-- `holowm score` measures the current rules against such recordings: what each prompted pose was
+- `holotouch score` measures the current rules against such recordings: what each prompted pose was
   read as, and which gesture it set off.
 
-First labelled session (`me-right-1`, two rounds, 26 holds), scored by `holowm score`:
+First labelled session (`me-right-1`, two rounds, 26 holds), scored by `holotouch score`:
 
 - **Index pinches were missed entirely**: 0 of the 3 genuine pinch holds, though the pictures show
   the fingertips touching. MediaPipe's metric landmarks put them 0.34, 0.40 and 0.86 palm lengths
@@ -142,7 +142,7 @@ First labelled session (`me-right-1`, two rounds, 26 holds), scored by `holowm s
 - Right gesture, or rightly none: 23 of 26 holds, from 16 as first scored (5 of those were the
   scorer letting a switcher opened by one hold run on into the next).
 
-First model (`holowm train`, two sessions, one per hand, each read by a model trained on the
+First model (`holotouch train`, two sessions, one per hand, each read by a model trained on the
 other): a tie with the rules, 48 of 52 holds and 83% of frames each. The model reads a steep tilt as
 two fingers in 48% of frames (rules: 0%) and an open hand in 65% (25%), but keeps a pinch up for
 only 74% of a hold (100%) and a fist for 76%. Described by raw coordinates it was much worse (41 of
@@ -161,7 +161,7 @@ evidence is telling a cupped or loosely closed hand from a pinch or a fist.
 780M graphics, no discrete GPU. Anything that runs live must run on CPU within a 30 fps budget
 alongside MediaPipe.
 
-**Software.** HoloWM pins Python 3.12 and `mediapipe==1.0.1`. The tracker runs in its own process
+**Software.** HoloTouch pins Python 3.12 and `mediapipe==1.0.1`. The tracker runs in its own process
 and sends only landmarks to the core.
 
 **Testing.** Never test on the live display. Use `--dry-run`, `--replay`, or a private Xvfb with its
@@ -171,19 +171,19 @@ own xfwm4.
 
 | Location | What happens |
 |---|---|
-| `src/holowm/tracker/landmarker.py:85` | The handedness score is captured and never used. Nothing else carries confidence, so a hidden fingertip is treated as a measured one. |
-| `src/holowm/core/poses.py:73` | Pinch distance is a 3D thumb-to-fingertip distance. Depth is the part a monocular model guesses when a fingertip is hidden. |
-| `src/holowm/core/poses.py:79` | Finger tilt for scrolling is purely depth against height. |
-| `src/holowm/config.py:80` | `pinch_off_ms` is 60 ms, two frames at 30 fps. Two bad frames release a grab. |
-| `src/holowm/core/hands.py:185` | After `lost_grace_ms` (250 ms) without a detection the hand is deleted. |
-| `src/holowm/core/hands.py:80` | A re-detected hand gets a new id and cannot arm while it is still pinching, so an interrupted drag never resumes. |
+| `src/holotouch/tracker/landmarker.py:85` | The handedness score is captured and never used. Nothing else carries confidence, so a hidden fingertip is treated as a measured one. |
+| `src/holotouch/core/poses.py:73` | Pinch distance is a 3D thumb-to-fingertip distance. Depth is the part a monocular model guesses when a fingertip is hidden. |
+| `src/holotouch/core/poses.py:79` | Finger tilt for scrolling is purely depth against height. |
+| `src/holotouch/config.py:80` | `pinch_off_ms` is 60 ms, two frames at 30 fps. Two bad frames release a grab. |
+| `src/holotouch/core/hands.py:185` | After `lost_grace_ms` (250 ms) without a detection the hand is deleted. |
+| `src/holotouch/core/hands.py:80` | A re-detected hand gets a new id and cannot arm while it is still pinching, so an interrupted drag never resumes. |
 
 ## Papers reviewed
 
 Four arXiv papers were read in full. The ACM paper's PDF returned 403, so only its abstract was
 available. Deformer was read in full afterwards, together with its repository and issue tracker.
 
-| Paper | What it is | Verdict for HoloWM |
+| Paper | What it is | Verdict for HoloTouch |
 |---|---|---|
 | [WiLoR](https://arxiv.org/abs/2409.12259) (2409.12259) | Fast hand detector plus a transformer 3D reconstructor | Most useful. Much lower frame-to-frame jitter than HaMeR (5.92 vs 20.43 on HO3D) with no temporal module. The detector is 7–25 MB and far more robust than MediaPipe's (AP@0.5 of 96 vs 53 on their WHIM set), but its 138–175 FPS was measured on an RTX 4090. The reconstructor is a large ViT; a FastViT variant lost accuracy. Use it as the offline teacher. |
 | [HaMeR](https://arxiv.org/abs/2312.05251) (2312.05251) | ViT-H single-frame reconstructor | Too heavy to run live. Even this model scores 27.2% on occluded joints against 60.8% on visible ones (PCK@0.05, New Days), so no model swap makes occlusion go away. Its HInt dataset has per-keypoint occlusion labels. Possible second teacher. |
@@ -213,7 +213,7 @@ on neighbouring frames instead of their own estimate.
 
 Titles and abstracts confirmed via arXiv:
 
-- [MediaPipe Hands](https://arxiv.org/abs/2006.10214): the pipeline HoloWM uses.
+- [MediaPipe Hands](https://arxiv.org/abs/2006.10214): the pipeline HoloTouch uses.
 - [On-device Real-time Hand Gesture Recognition](https://arxiv.org/abs/2111.00038): builds on
   MediaPipe Hands and compares a heuristic gesture classifier with a small neural one on landmarks.
 - [SmoothNet](https://arxiv.org/abs/2112.13715): temporal-only refiner aimed at the multi-frame
@@ -257,13 +257,13 @@ Novelty has not been confirmed by a literature search; treat these as candidates
 2. **A causal, uncertainty-aware refiner.** Every occlusion method reviewed uses future frames or a
    large GPU. A small model that sees only past frames, outputs corrected landmarks plus per-joint
    confidence, and is distilled from an offline teacher would fill that gap.
-3. **Interface state as a prior.** HoloWM knows the user is mid-drag. Staying pinched is likely, and
+3. **Interface state as a prior.** HoloTouch knows the user is mid-drag. Staying pinched is likely, and
    release should need positive evidence rather than two bad frames. No training needed to start.
 4. **Calibrated hand size for depth.** Measure the user's bone lengths once and estimate distance
    from apparent size. Least novel, but could enable push/pull gestures.
 
 The chosen path is direction 2, ideally combined with direction 1, because both are feasible on
-this laptop and HoloWM's replay mode already provides a testbed.
+this laptop and HoloTouch's replay mode already provides a testbed.
 
 ## The distillation idea
 
@@ -271,7 +271,7 @@ WiLoR is much better than MediaPipe on hard frames but cannot run at 30 fps here
 gives confident nonsense when a fingertip is hidden. Distillation moves some of WiLoR's judgement
 into something that fits the frame budget.
 
-1. Record HoloWM use, saving video and MediaPipe's landmarks for each frame.
+1. Record HoloTouch use, saving video and MediaPipe's landmarks for each frame.
 2. Run WiLoR over the video afterwards with no time pressure. Every frame now has two answers.
 3. Train a small student on those pairs. Input: the last few frames of MediaPipe landmarks. Target:
    what WiLoR said the hand was doing.
@@ -320,7 +320,7 @@ for bulk labelling, or stay on Colab if the laptop is too slow.
    camera returned, so it is an exact join key.
 3. Save the mirrored frame, the one MediaPipe actually saw.
 4. Save every camera frame, including ones the idle-skip logic does not submit.
-5. Keep writing the existing JSONL from `holowm record`.
+5. Keep writing the existing JSONL from `holotouch record`.
 
 Budget about 2 GB per ten minutes at 720p.
 
@@ -336,7 +336,7 @@ Record separate sessions, because whole sessions are held out later.
   - fist and two-finger tilt;
   - hands entering and leaving the frame edges;
   - fast motion.
-- **Natural:** ten minutes of really using HoloWM with `--dry-run`.
+- **Natural:** ten minutes of really using HoloTouch with `--dry-run`.
 - **Negatives:** typing, reaching for a cup, touching the face.
 - **Variation:** different lighting, sleeves, another day.
 
@@ -345,7 +345,7 @@ Start with 20–30 minutes in total.
 ### Phase 3: Label with the teacher
 
 1. Use a separate environment. WiLoR-mini pins `torch<=2.5` and `ultralytics==8.1.34`, which
-   HoloWM's must not inherit. (It asks for Python 3.10 but runs the same on 3.12; see Status.)
+   HoloTouch's must not inherit. (It asks for Python 3.10 but runs the same on 3.12; see Status.)
 2. Use float32 on CPU. The README example uses float16, which is meant for GPU.
 3. Time 100 frames, then decide between laptop and Colab.
 4. Run the teacher's own detector on every frame, not MediaPipe's boxes, to capture frames where
@@ -408,7 +408,7 @@ Compare against raw MediaPipe and against the current 1€ filter path.
 ### Phase 7: Integrate
 
 1. Export the student to a format that runs on CPU without torch.
-2. Insert it in `Hand._ingest` (`src/holowm/core/hands.py:59`), before `extract_features`, with
+2. Insert it in `Hand._ingest` (`src/holotouch/core/hands.py:59`), before `extract_features`, with
    state kept per hand and reset for new hands.
 3. Feed uncertainty into `PoseTracker`: while thumb or index uncertainty is high, hold the current
    pose instead of starting the release timer.

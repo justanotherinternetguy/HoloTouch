@@ -3,7 +3,7 @@
 (function () {
     'use strict';
 
-    const HW = window.HoloWM;
+    const HT = window.HoloTouch;
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const all = function (selector) { return Array.from(document.querySelectorAll(selector)); };
     const byId = function (id) { return document.getElementById(id); };
@@ -14,10 +14,10 @@
 
     // Hands written into the page as <div data-hand="index" data-side="left">.
     all('[data-hand]').forEach(function (slot) {
-        slot.appendChild(HW.Hand.figure({ pose: slot.dataset.hand, side: slot.dataset.side }).svg);
+        slot.appendChild(HT.Hand.figure({ pose: slot.dataset.hand, side: slot.dataset.side }).svg);
     });
 
-    HW.desk = HW.initDesk(document.querySelector('.desk'), {
+    HT.desk = HT.initDesk(document.querySelector('.desk'), {
         hands: byId('now-hands'), title: byId('now-title'), pose: byId('now-pose'), how: byId('now-how'),
         tabs: all('[data-scene]'), toggle: byId('desk-toggle')
     });
@@ -29,12 +29,12 @@
     const watcher = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {
             const play = players.get(entry.target);
-            if (entry.isIntersecting) HW.ticker.add(play);
-            else HW.ticker.remove(play);
+            if (entry.isIntersecting) HT.ticker.add(play);
+            else HT.ticker.remove(play);
         });
     }, { rootMargin: '60px' });
     all('[data-gesture]').forEach(function (slot) {
-        const update = HW.mountStage(slot, slot.dataset.gesture);
+        const update = HT.mountStage(slot, slot.dataset.gesture);
         if (calm) {
             update(STILLS[slot.dataset.gesture] || 0);
             return;
@@ -61,7 +61,7 @@
     // The hand shapes: one large hand that turns into whichever shape is picked. Until someone
     // picks one it goes through them by itself.
     const well = byId('shape-hand');
-    const figures = { left: HW.Hand.figure({ side: 'left' }), right: HW.Hand.figure({ side: 'right' }) };
+    const figures = { left: HT.Hand.figure({ side: 'left' }), right: HT.Hand.figure({ side: 'right' }) };
     well.appendChild(figures.left.svg);
     well.appendChild(figures.right.svg);
     const shapes = all('[data-shape]');

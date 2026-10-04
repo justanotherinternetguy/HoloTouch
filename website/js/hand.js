@@ -1,4 +1,4 @@
-// The illustrated hand of the control panel (src/holowm/panel/qml/HandFigure.qml), drawn as SVG:
+// The illustrated hand of the control panel (src/holotouch/panel/qml/HandFigure.qml), drawn as SVG:
 // a palm and five capsule fingers on a 96-unit grid. Coral is the right hand and sky the left.
 // Here a hand also turns from one pose into the next, rather than being swapped for it.
 (function () {
@@ -153,5 +153,5 @@
         return hand;
     };
 
-    window.HoloWM = { el: el, ticker: ticker, Hand: Hand, poses: Object.keys(POSES) };
+    window.HoloTouch = { el: el, ticker: ticker, Hand: Hand, poses: Object.keys(POSES) };
 })();

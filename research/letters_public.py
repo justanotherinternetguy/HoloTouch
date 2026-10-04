@@ -1,17 +1,17 @@
-"""Train the letter model HoloWM comes with, on public landmarks of the American manual alphabet.
+"""Train the letter model HoloTouch comes with, on public landmarks of the American manual alphabet.
 
     .venv/bin/python research/letters_public.py [--check recordings/me-right-1.jsonl ...]
 
 The landmarks are ASLNow!'s (https://huggingface.co/datasets/sid220/asl-now-fingerspelling, MIT
 licence): about two thousand hands, of several people, as MediaPipe's hand landmarker saw them.
-They are fetched once with git, to ~/.cache/holowm/letters/asl-now. The model is written to
-src/holowm/core/letters.npz, and the hands themselves beside it, to letters_public.npz, for
-`holowm train-letters` to add your own to.
+They are fetched once with git, to ~/.cache/holotouch/letters/asl-now. The model is written to
+src/holotouch/core/letters.npz, and the hands themselves beside it, to letters_public.npz, for
+`holotouch train-letters` to add your own to.
 
 Before that it is tested on hands it has not seen: the data is split five ways, and each fifth is
 read by a model trained on the rest. The fifths are drawn at random, and nothing says whose hand
 each one is, so a person's hands are on both sides of every split: on somebody new it will do
-worse than this says. --check reads recordings made by `holowm collect` with it, which shows how
+worse than this says. --check reads recordings made by `holotouch collect` with it, which shows how
 it does on this camera. Their poses are no letters, but some are near enough to one: the letter
 Y is Y, taking aim is L, two fingers up is V or U.
 """
@@ -27,8 +27,8 @@ from pathlib import Path
 
 import numpy as np
 
-from holowm.config import CACHE_DIR
-from holowm.core.letters import BUNDLED_PATH, LETTERS, PUBLIC_PATH, LetterModel, letter_features, train
+from holotouch.config import CACHE_DIR
+from holotouch.core.letters import BUNDLED_PATH, LETTERS, PUBLIC_PATH, LetterModel, letter_features, train
 
 DATA_URL = "https://huggingface.co/datasets/sid220/asl-now-fingerspelling"
 DATA_REVISION = "9b3c96ae0adb7744a2c9fc72692842e6b3e25e33"
@@ -77,8 +77,8 @@ def report(read: np.ndarray, labels: np.ndarray) -> None:
 
 
 def check(model: LetterModel, recordings: list[Path]) -> None:
-    from holowm.config import Config
-    from holowm.tools.score import _REACT_S, load_session
+    from holotouch.config import Config
+    from holotouch.tools.score import _REACT_S, load_session
 
     aspect = Config().camera.width / Config().camera.height
     for recording in recordings:
@@ -103,7 +103,7 @@ def check(model: LetterModel, recordings: list[Path]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, default=BUNDLED_PATH, help="where to save the model")
-    parser.add_argument("--check", type=Path, nargs="*", default=[], help="recordings made by `holowm collect` to read with it")
+    parser.add_argument("--check", type=Path, nargs="*", default=[], help="recordings made by `holotouch collect` to read with it")
     args = parser.parse_args()
     hands, labels = load_public()
     report(held_out(hands, labels), labels)

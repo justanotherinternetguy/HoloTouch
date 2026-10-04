@@ -1,7 +1,7 @@
-# HoloWM: what it does and how it works
+# HoloTouch: what it does and how it works
 
-HoloWM lets you control the windows on a Linux desktop with your hands in the air. A webcam watches
-your hands, HoloWM reads what they are doing, and it moves, resizes, closes, scrolls and switches
+HoloTouch lets you control the windows on a Linux desktop with your hands in the air. A webcam watches
+your hands, HoloTouch reads what they are doing, and it moves, resizes, closes, scrolls and switches
 windows accordingly. A see-through overlay on the screen shows where your hands are and what each
 gesture is about to do.
 
@@ -34,7 +34,7 @@ whole screen, so the hand never has to reach the edge of the picture.
 The pie menu starts apps (terminal, browser, files), skips music tracks, lists the running windows,
 maximizes, minimizes, tiles or closes the window under the hand, switches workspaces, and presses
 the Escape key in whatever has the keyboard. Its
-contents can be replaced with `~/.config/holowm/menu.toml` (see `contrib/menu.example.toml`).
+contents can be replaced with `~/.config/holotouch/menu.toml` (see `contrib/menu.example.toml`).
 
 The launcher opens every app that the applications menu lists, each spelt by its name with the
 spaces and digits left out. It lists the apps the letters so far may yet spell, and once only one
@@ -43,14 +43,14 @@ installed too. Making the sign again takes it all back. J and Z are drawn in the
 not read, so in a name each is spelt by the hand that draws it, held still: that of I for J, and
 that of D for Z. `apps = false` under `[spell]` leaves the apps out.
 
-It runs macros as well, listed in `~/.config/holowm/macros.toml` (see
+It runs macros as well, listed in `~/.config/holotouch/macros.toml` (see
 `contrib/macros.example.toml`): each has its letters, a name, and what it does, which is to open
 an address, run a command, start an app, press a key or type some text. Without that file there
 is one, RS for Instagram Reels. A macro has to be spelt in full, and J and Z cannot be used in one.
 
 ## How it works
 
-HoloWM is three kinds of process:
+HoloTouch is three kinds of process:
 
 1. **The tracker** reads the webcam and finds hands and a face in each frame.
 2. **The core** turns those into gestures, acts on windows, and draws the overlay.
@@ -58,7 +58,7 @@ HoloWM is three kinds of process:
 
 ### 1. Tracker: camera to landmarks
 
-`src/holowm/tracker/`
+`src/holotouch/tracker/`
 
 - The webcam is read through V4L2 at 1280×720 and 30 frames a second, and each frame is mirrored
   so that moving a hand to the right moves its cursor to the right.
@@ -73,7 +73,7 @@ HoloWM is three kinds of process:
 
 ### 2. Core: landmarks to gestures
 
-`src/holowm/core/`
+`src/holotouch/core/`
 
 **Hand tracks** (`hands.py`). Detections are matched to the hands already being followed, so each
 hand keeps its identity when hands cross or drop out for a moment. A hand that vanishes is kept for
@@ -83,7 +83,7 @@ a quarter of a second before it is forgotten.
 (no jitter) and a fast hand lightly (no lag). The camera gives 30 samples a second and the screen
 refreshes faster, so the position is predicted forward between samples from the hand's speed.
 
-**Poses** (`poses.py`). From the landmarks HoloWM measures a few things in palm lengths: how far
+**Poses** (`poses.py`). From the landmarks HoloTouch measures a few things in palm lengths: how far
 the thumb tip is from each fingertip, how curled and how straight each finger is, how squarely the
 palm faces the camera, how far the fingers tilt, and how near the thumb tip is to the middle
 finger. Hand-written rules turn these into one of eleven poses: neutral, open, index pinch, pinky
@@ -96,8 +96,8 @@ rules, so a small network reads them: one hidden layer, fed where each of the ha
 from the wrist and how far apart they are, in palm lengths. It is asked only while spelling. Many
 letters are also gestures (R holds up two fingers, which scroll; S is a fist, which closes a
 window), which is why the launcher has a sign that opens it, and nothing else starts until it closes.
-The model that comes with HoloWM was trained on about 1900 public hands of 24 letters;
-`holowm train-letters` adds your own to them.
+The model that comes with HoloTouch was trained on about 1900 public hands of 24 letters;
+`holotouch train-letters` adds your own to them.
 
 **Claps** (`claps.py`). A clap is the two palms 14 cm apart or more and then together, within a
 third of a second. Hands that meet are often read as one hand or as none, so palms that vanish on
@@ -128,12 +128,12 @@ Several guards keep misread hands from doing damage:
 - Only application windows can be changed, never the desktop or a panel, and fullscreen windows
   are not grabbed.
 
-A small trained pose model exists as an alternative to the rules (`pose_model.py`, `holowm train`).
-It is off by default and the rules are what HoloWM uses.
+A small trained pose model exists as an alternative to the rules (`pose_model.py`, `holotouch train`).
+It is off by default and the rules are what HoloTouch uses.
 
 ### 3. Acting on the desktop
 
-`src/holowm/x11/`
+`src/holotouch/x11/`
 
 The engine talks to a `WindowBackend` interface (`core/actions.py`), which has two implementations:
 
@@ -150,7 +150,7 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
 an address is handed to `xdg-open`, a command to the shell, an app to `gtk-launch`, and a key or
 text to the backend.
 
-**Apps** (`launcher/apps.py`) are found when HoloWM starts, from the desktop files in the XDG
+**Apps** (`launcher/apps.py`) are found when HoloTouch starts, from the desktop files in the XDG
 data directories: those the applications menu would list on this desktop, and whose program is
 installed. Each is opened with `gtk-launch`. Of two that are spelt alike only the first is kept,
 and a macro comes before an app.
@@ -165,7 +165,7 @@ soon as they have been read, and what was said is not logged.
 
 ### 4. The overlay
 
-`src/holowm/overlay/`
+`src/holotouch/overlay/`
 
 A fullscreen, transparent, click-through window drawn with Qt Quick sits above everything. The
 engine produces an `OverlayState` each tick and a bridge hands it to QML, which draws:
@@ -194,17 +194,17 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
   and the hands and face as the camera sees them
 
 Everything pairs cream with ink so that it reads over light and dark windows alike, and nothing
-samples or blurs the desktop. The colours and typefaces are in `src/holowm/theme.py`, shared with
+samples or blurs the desktop. The colours and typefaces are in `src/holotouch/theme.py`, shared with
 the control panel.
 
 The core also has a tray icon (pause, diagnostics, quit) and a control socket.
 
 ### 5. The control panel
 
-`src/holowm/panel/`
+`src/holotouch/panel/`
 
-`holowm panel` opens a window from which HoloWM is started and stopped without a terminal.
-`holowm panel --install` adds it to the applications menu. It shows:
+`holotouch panel` opens a window from which HoloTouch is started and stopped without a terminal.
+`holotouch panel --install` adds it to the applications menu. It shows:
 
 - a Start/Stop dial whose ring is the state, and that state in a word and a sentence: running,
   paused, stopped, practising, or running with no camera
@@ -212,53 +212,53 @@ The core also has a tray icon (pause, diagnostics, quit) and a control socket.
 - a button to pause and resume tracking, and the switch for practice mode
 - a guide to the gestures, each with an illustrated hand playing it
 - practice: four steps on the two stand-in windows (grab, move, resize, pie menu), one at a
-  time, each shown on the desktop as well and ticked off when HoloWM sees it done
+  time, each shown on the desktop as well and ticked off when HoloTouch sees it done
 - the results of the machine checks, in plain words, with what to do about any that is not fine
-- a drawer with the switch for the diagnostics view and HoloWM's log, which opens by itself when
+- a drawer with the switch for the diagnostics view and HoloTouch's log, which opens by itself when
   something goes wrong
 
-The panel starts HoloWM as a separate process and follows it over the control socket, so closing
-the panel leaves HoloWM running, and a HoloWM started from a terminal is picked up as well.
+The panel starts HoloTouch as a separate process and follows it over the control socket, so closing
+the panel leaves HoloTouch running, and a HoloTouch started from a terminal is picked up as well.
 
 ## Commands
 
 | Command | What it does |
 | --- | --- |
-| `holowm run` | Start tracking and the overlay. This is the default with no command. |
-| `holowm run --debug` | The same, with the diagnostics panel shown. |
-| `holowm run --dry-run` | Act on stand-in windows instead of real ones. |
-| `holowm run --replay FILE [--loop]` | Drive the engine from a recording instead of the camera. |
-| `holowm run --record FILE [--frames]` | Record the hand tracking while running; `--frames` saves every camera frame too. |
-| `holowm panel [--install]` | Open the control panel, or add it to the applications menu. |
-| `holowm ctl pause\|resume\|toggle\|debug\|status\|quit` | Control a running instance. |
-| `holowm doctor [--no-camera]` | Check that the machine has what HoloWM needs, and measure the tracking rate. |
-| `holowm record FILE` | Record hand tracking to a JSONL file. |
-| `holowm collect FILE` | Record while prompting one pose after another, so the recording comes labelled. |
-| `holowm collect FILE --letters` | The same, asking for the letters of the manual alphabet and a resting hand. |
-| `holowm train-letters FILES…` | Train the model that reads spelt letters on those recordings, added to the public hands. |
-| `holowm score FILES…` | Measure how well the poses and gestures in labelled recordings are read. |
-| `holowm train FILES…` | Train the optional pose model on labelled recordings. |
+| `holotouch run` | Start tracking and the overlay. This is the default with no command. |
+| `holotouch run --debug` | The same, with the diagnostics panel shown. |
+| `holotouch run --dry-run` | Act on stand-in windows instead of real ones. |
+| `holotouch run --replay FILE [--loop]` | Drive the engine from a recording instead of the camera. |
+| `holotouch run --record FILE [--frames]` | Record the hand tracking while running; `--frames` saves every camera frame too. |
+| `holotouch panel [--install]` | Open the control panel, or add it to the applications menu. |
+| `holotouch ctl pause\|resume\|toggle\|debug\|status\|quit` | Control a running instance. |
+| `holotouch doctor [--no-camera]` | Check that the machine has what HoloTouch needs, and measure the tracking rate. |
+| `holotouch record FILE` | Record hand tracking to a JSONL file. |
+| `holotouch collect FILE` | Record while prompting one pose after another, so the recording comes labelled. |
+| `holotouch collect FILE --letters` | The same, asking for the letters of the manual alphabet and a resting hand. |
+| `holotouch train-letters FILES…` | Train the model that reads spelt letters on those recordings, added to the public hands. |
+| `holotouch score FILES…` | Measure how well the poses and gestures in labelled recordings are read. |
+| `holotouch train FILES…` | Train the optional pose model on labelled recordings. |
 
 ## Tuning and measuring
 
-Everything adjustable lives in `~/.config/holowm/config.toml`, in sections for the camera, tracker,
+Everything adjustable lives in `~/.config/holotouch/config.toml`, in sections for the camera, tracker,
 screen mapping, filters, poses, gestures, spelling, pie menu, window switcher and overlay. Every key has a
-default (`src/holowm/config.py`), and an unknown key is rejected with its name.
+default (`src/holotouch/config.py`), and an unknown key is rejected with its name.
 
 Gesture recognition is tuned against recordings rather than by feel:
 
-- `holowm collect` asks for each pose in turn and records when it was held.
-- `holowm score` replays those recordings through the same code the live program uses and reports,
+- `holotouch collect` asks for each pose in turn and records when it was held.
+- `holotouch score` replays those recordings through the same code the live program uses and reports,
   for each pose asked for, what it was read as and which gesture it set off.
-- `holowm run --replay` plays any recording back through the full engine and overlay.
+- `holotouch run --replay` plays any recording back through the full engine and overlay.
 
 The model that reads letters is made and measured the same way. `research/letters_public.py`
-trains the one HoloWM comes with on ASLNow!'s public landmarks (MIT licence), and tests it on
+trains the one HoloTouch comes with on ASLNow!'s public landmarks (MIT licence), and tests it on
 hands held out of training: it reads 98% of them right, though with the same people on both
-sides of the split, so expect less on a new hand. `holowm collect FILE --letters` records your
-own, about two minutes a round, and `holowm train-letters FILE` adds them to the public ones,
+sides of the split, so expect less on a new hand. `holotouch collect FILE --letters` records your
+own, about two minutes a round, and `holotouch train-letters FILE` adds them to the public ones,
 reports how the result reads holds it was not trained on, and saves it to
-`~/.config/holowm/letters.npz`, which is then used. Your own recording also shows the model a
+`~/.config/holotouch/letters.npz`, which is then used. Your own recording also shows the model a
 resting hand, which the public data has none of: without it every hand looks like some letter.
 
 `research/label_teacher.py` labels saved camera frames with WiLoR, a slow but more accurate hand
@@ -273,21 +273,21 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
 `playerctl` (skipping tracks), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
-Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), and `xdg-open` (macros that open an address). `holowm doctor` reports which of these are present.
+Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), and `xdg-open` (macros that open an address). `holotouch doctor` reports which of these are present.
 
 ## Where things are
 
 | Path | Contents |
 | --- | --- |
-| `src/holowm/cli.py` | The `holowm` command and its subcommands |
-| `src/holowm/config.py` | Every setting and its default |
-| `src/holowm/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
-| `src/holowm/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
-| `src/holowm/launcher/` | The pie menu's model and actions, the macros, the installed apps, the camera app, and dictation |
-| `src/holowm/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
-| `src/holowm/overlay/` | The overlay process, its bridge to QML, and the QML components |
-| `src/holowm/panel/` | The control panel |
-| `src/holowm/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
-| `src/holowm/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
+| `src/holotouch/cli.py` | The `holotouch` command and its subcommands |
+| `src/holotouch/config.py` | Every setting and its default |
+| `src/holotouch/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
+| `src/holotouch/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
+| `src/holotouch/launcher/` | The pie menu's model and actions, the macros, the installed apps, the camera app, and dictation |
+| `src/holotouch/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
+| `src/holotouch/overlay/` | The overlay process, its bridge to QML, and the QML components |
+| `src/holotouch/panel/` | The control panel |
+| `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
+| `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
 | `tests/` | 352 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

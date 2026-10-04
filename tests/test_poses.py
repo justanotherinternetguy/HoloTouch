@@ -2,10 +2,10 @@ from dataclasses import replace
 
 import pytest
 
-from holowm.config import Config, PoseConfig
-from holowm.core.poses import Pose, PoseTracker, extract_features
-from holowm.launcher.menu import BACK, MenuItem, PieSession, layout_angles
-from holowm.config import PieConfig
+from holotouch.config import Config, PoseConfig
+from holotouch.core.poses import Pose, PoseTracker, extract_features
+from holotouch.launcher.menu import BACK, MenuItem, PieSession, layout_angles
+from holotouch.config import PieConfig
 from synth import make_hand
 
 SCREEN = (2880, 1800)

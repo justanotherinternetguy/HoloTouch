@@ -1,4 +1,4 @@
-# Copy to ~/.config/holowm/menu.toml to replace the built-in pie menu.
+# Copy to ~/.config/holotouch/menu.toml to replace the built-in pie menu.
 # Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track, key.
 # Keep each level to 12 items or fewer.
 

@@ -32,7 +32,7 @@ HoloTouch is designed to be...
 - **3D space-first** by using all the space around the user and using facial features to locate gestures
 - **quick**, **responsive,**, and **consisten**, making it an **actually viable replacement** for keyboard-mouse control
 
-HoloWM is the **closest** you will get to tony stark tossing windows around.
+HoloTouch is the **closest** you will get to tony stark tossing windows around.
 
 # technical details
 

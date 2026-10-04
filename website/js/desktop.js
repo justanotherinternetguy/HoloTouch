@@ -1,14 +1,14 @@
-// The desktop at the top of the page: HoloWM's overlay, played over a stand-in desktop. Two ring
+// The desktop at the top of the page: HoloTouch's overlay, played over a stand-in desktop. Two ring
 // cursors move a window, resize it, open the pie menu and close what it opened, on a loop.
 // Everything on it is a function of the scene and the time within it, so any scene can be jumped to.
 (function () {
     'use strict';
 
-    const HW = window.HoloWM;
-    const ease = HW.ease;
+    const HT = window.HoloTouch;
+    const ease = HT.ease;
     const W = 880;
 
-    // The line icons the overlay draws (src/holowm/ui/Icons.js), on a 24-unit grid.
+    // The line icons the overlay draws (src/holotouch/ui/Icons.js), on a 24-unit grid.
     const ICONS = {
         terminal: 'M6 4 L18 4 A3 3 0 0 1 21 7 L21 17 A3 3 0 0 1 18 20 L6 20 A3 3 0 0 1 3 17 L3 7 A3 3 0 0 1 6 4 Z M7 10 L10 12.5 L7 15 M13 15 L17 15',
         globe: 'M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M3 12 L21 12 M12 3 C14.8 6 14.8 18 12 21 M12 3 C9.2 6 9.2 18 12 21',
@@ -232,7 +232,7 @@
         };
     }
 
-    HW.initDesk = function (root, controls) {
+    HT.initDesk = function (root, controls) {
         const desk = root.querySelector('.desk__inner');
         const browser = desk.querySelector('[data-window="browser"]');
         const terminal = desk.querySelector('[data-window="terminal"]');
@@ -252,8 +252,8 @@
 
         // The two hands under the desktop show what each hand out in front of the camera is doing.
         const figures = {
-            left: HW.Hand.figure({ side: 'left' }),
-            right: HW.Hand.figure({ side: 'right' })
+            left: HT.Hand.figure({ side: 'left' }),
+            right: HT.Hand.figure({ side: 'right' })
         };
         controls.hands.appendChild(figures.left.svg);
         controls.hands.appendChild(figures.right.svg);
@@ -327,8 +327,8 @@
         }
         function run() {
             last = null;
-            if (playing && visible) HW.ticker.add(tick);
-            else HW.ticker.remove(tick);
+            if (playing && visible) HT.ticker.add(tick);
+            else HT.ticker.remove(tick);
         }
         function setPlaying(on) {
             playing = on;

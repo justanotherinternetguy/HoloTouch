@@ -1,11 +1,11 @@
 // The looping demonstrations of the control panel's gesture guide
-// (src/holowm/panel/qml/GestureStage.qml), one for each gesture: an illustrated hand, and what it
+// (src/holotouch/panel/qml/GestureStage.qml), one for each gesture: an illustrated hand, and what it
 // acts on. Each is drawn on a 170 by 104 unit stage and is a function of time alone.
 (function () {
     'use strict';
 
-    const HW = window.HoloWM;
-    const el = HW.el;
+    const HT = window.HoloTouch;
+    const el = HT.el;
 
     const ease = {
         linear: function (p) { return p; },
@@ -56,7 +56,7 @@
         return el('rect', { 'class': 'st-pane', x: x, y: y, width: w || 56, height: h || 38, rx: 8 }, parent);
     };
     Kit.prototype.hand = function (parent, pose, x, y, size, side) {
-        const hand = new HW.Hand({ pose: pose, side: side });
+        const hand = new HT.Hand({ pose: pose, side: side });
         parent.appendChild(hand.place(x, y, size).g);
         return hand;
     };
@@ -268,6 +268,6 @@
         return update;
     }
 
-    HW.ease = ease;
-    HW.mountStage = mountStage;
+    HT.ease = ease;
+    HT.mountStage = mountStage;
 })();

@@ -71,7 +71,7 @@ def display(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def backend(display):
-    from holowm.x11.backend import X11Backend
+    from holotouch.x11.backend import X11Backend
 
     name, spawn = display
     backend = None
@@ -447,12 +447,12 @@ def test_xtest_key_press_reaches_the_window_with_the_keyboard(backend, display):
 
 def test_engine_drives_real_window(backend):
     """End to end: synthetic hands grab and move an xfwm4-managed window."""
-    from holowm.config import Config
-    from holowm.core.engine import Engine
-    from holowm.launcher.launch import Launcher
-    from holowm.launcher.macros import Macros
-    from holowm.launcher.menu import MenuItem
-    from holowm.tracker.types import FrameSample
+    from holotouch.config import Config
+    from holotouch.core.engine import Engine
+    from holotouch.launcher.launch import Launcher
+    from holotouch.launcher.macros import Macros
+    from holotouch.launcher.menu import MenuItem
+    from holotouch.tracker.types import FrameSample
     from synth import make_hand
 
     alpha = by_title(backend, "alpha")
@@ -489,12 +489,12 @@ def test_engine_drives_real_window(backend):
 
 
 def test_switcher_orders_by_use_and_goes_to_a_window_on_another_workspace(backend):
-    from holowm.config import Config
-    from holowm.core.engine import Engine
-    from holowm.core.interactions import SwitcherInteraction
-    from holowm.launcher.launch import Launcher
-    from holowm.launcher.macros import Macros
-    from holowm.launcher.menu import MenuItem
+    from holotouch.config import Config
+    from holotouch.core.engine import Engine
+    from holotouch.core.interactions import SwitcherInteraction
+    from holotouch.launcher.launch import Launcher
+    from holotouch.launcher.macros import Macros
+    from holotouch.launcher.menu import MenuItem
 
     alpha, beta = by_title(backend, "alpha"), by_title(backend, "beta")
     engine = Engine(Config(), backend, Launcher(backend, MenuItem("Root")), Macros(backend, []))

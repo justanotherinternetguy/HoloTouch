@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=HoloWM
-Comment=Hand-gesture window control
-Exec=holowm run
-Icon=input-gaming
-Terminal=false
-X-GNOME-Autostart-enabled=true

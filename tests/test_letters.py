@@ -1,4 +1,4 @@
-"""The letter model: what it is told of a hand, the one HoloWM comes with, and training one of your own."""
+"""The letter model: what it is told of a hand, the one HoloTouch comes with, and training one of your own."""
 
 import json
 from collections import Counter
@@ -7,12 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from holowm.config import Config
-from holowm.core.letters import BUNDLED_PATH, LETTERS, REST, LetterModel, letter_features, model_path, train, varied
-from holowm.tools.letters import examples, run_train_letters, spelt_by
-from holowm.tools.prompts import LETTER_SCRIPT, Prompter
-from holowm.tools.score import Session
-from holowm.tracker.types import FrameSample
+from holotouch.config import Config
+from holotouch.core.letters import BUNDLED_PATH, LETTERS, REST, LetterModel, letter_features, model_path, train, varied
+from holotouch.tools.letters import examples, run_train_letters, spelt_by
+from holotouch.tools.prompts import LETTER_SCRIPT, Prompter
+from holotouch.tools.score import Session
+from holotouch.tracker.types import FrameSample
 from synth import make_hand
 
 SCREEN = (2880, 1800)
@@ -39,7 +39,7 @@ def test_features_do_not_change_with_where_the_hand_is_or_how_near_but_do_with_w
 
 
 @pytest.mark.parametrize("case", REAL, ids=[case["what"] for case in REAL])
-def test_the_model_holowm_comes_with_reads_real_hands_of_either_side(case):
+def test_the_model_holotouch_comes_with_reads_real_hands_of_either_side(case):
     """Landmarks from webcam sessions of prompted poses that are, near enough, letters."""
     model = LetterModel.load(BUNDLED_PATH)
     assert model.classes == LETTERS
@@ -89,7 +89,7 @@ def test_varied_hands_keep_their_order_and_about_half_are_mirrored():
 
 
 def test_your_own_model_is_used_once_there_is_one(tmp_path, monkeypatch):
-    monkeypatch.setattr("holowm.core.letters.OWN_PATH", tmp_path / "letters.npz")
+    monkeypatch.setattr("holotouch.core.letters.OWN_PATH", tmp_path / "letters.npz")
     assert model_path() == BUNDLED_PATH
     (tmp_path / "letters.npz").write_bytes(b"")
     assert model_path() == tmp_path / "letters.npz"
@@ -123,12 +123,12 @@ def recording(holds_each=2) -> Session:
 
 
 def test_training_on_your_own_recordings_reports_and_saves_a_model(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr("holowm.tools.letters._EPOCHS", 80)
+    monkeypatch.setattr("holotouch.tools.letters._EPOCHS", 80)
     session = recording()
     hands, spelt, hold_of = examples([session], Config())
     assert Counter(spelt) == Counter({c: 84 for c in [*STAND_INS, REST]})  # the first 0.6 s of each hold is left out
     assert set(hold_of) == {0, 1}
-    monkeypatch.setattr("holowm.tools.letters.load_session", lambda path: session)
+    monkeypatch.setattr("holotouch.tools.letters.load_session", lambda path: session)
     out = tmp_path / "letters.npz"
     assert run_train_letters([Path("made-up.jsonl")], Config(), out) == 0
     said = capsys.readouterr().out
@@ -141,9 +141,9 @@ def test_training_on_your_own_recordings_reports_and_saves_a_model(tmp_path, mon
 
 
 def test_one_hold_of_each_letter_is_trained_on_untested_and_no_letter_is_too_few(monkeypatch, capsys, tmp_path):
-    monkeypatch.setattr("holowm.tools.letters._EPOCHS", 20)
+    monkeypatch.setattr("holotouch.tools.letters._EPOCHS", 20)
     session = recording(holds_each=1)
-    monkeypatch.setattr("holowm.tools.letters.load_session", lambda path: session)
+    monkeypatch.setattr("holotouch.tools.letters.load_session", lambda path: session)
     assert run_train_letters([Path("made-up.jsonl")], Config(), tmp_path / "letters.npz") == 0
     assert "One hold of each letter is not enough" in capsys.readouterr().out
     session.steps = [step for step in session.steps if step["label"] == "rest"]

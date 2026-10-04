@@ -1,8 +1,8 @@
 """What the QML layer is told about the window switcher. Needs no display."""
 
-from holowm.config import Config
-from holowm.core.overlay_state import FrameView, HandView, OverlayState
-from holowm.overlay.bridge import Bridge
+from holotouch.config import Config
+from holotouch.core.overlay_state import FrameView, HandView, OverlayState
+from holotouch.overlay.bridge import Bridge
 
 
 class StubImages:
@@ -95,8 +95,8 @@ def test_a_hand_that_vanishes_while_holding_a_window_is_lost_and_so_is_its_frame
 
 
 def test_menu_items_say_what_kind_of_thing_they_do():
-    from holowm.launcher.launch import default_menu
-    from holowm.launcher.menu import PieSession
+    from holotouch.launcher.launch import default_menu
+    from holotouch.launcher.menu import PieSession
 
     cfg = Config()
     bridge = Bridge(cfg)

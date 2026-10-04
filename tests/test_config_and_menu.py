@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from holowm.config import Config, PieConfig, load_config
-from holowm.core.actions import WindowInfo
-from holowm.launcher.launch import Launcher, load_menu
-from holowm.launcher.menu import MenuItem, PieSession, item_from_dict
-from holowm.tracker.types import FrameSample
-from holowm.x11.fake import FakeBackend
+from holotouch.config import Config, PieConfig, load_config
+from holotouch.core.actions import WindowInfo
+from holotouch.launcher.launch import Launcher, load_menu
+from holotouch.launcher.menu import MenuItem, PieSession, item_from_dict
+from holotouch.tracker.types import FrameSample
+from holotouch.x11.fake import FakeBackend
 from synth import make_hand
 
 REPO = Path(__file__).parent.parent

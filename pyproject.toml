@@ -1,5 +1,5 @@
 [project]
-name = "holowm"
+name = "holotouch"
 version = "0.1.0"
 description = "Spatial hand-gesture window control for XFCE/X11"
 readme = "README.md"
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-holowm = "holowm.cli:main"
+holotouch = "holotouch.cli:main"
 
 [dependency-groups]
 dev = ["pytest"]
@@ -23,7 +23,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/holowm"]
+packages = ["src/holotouch"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
