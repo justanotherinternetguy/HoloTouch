@@ -25,12 +25,12 @@ all previous solutions are just an attempt to stuff spatial HCI **on top** of an
 
 # design goals
 
-HoloWM is designed to be...
+HoloTouch is designed to be...
 
 - **intuitive** with easy gestures for human hands
 - **extensible** with custom gesture creation and fine-tuning
 - **3D space-first** by using all the space around the user and using facial features to locate gestures
-- **quick** and **responsive,** making it an **actually viable replacement** for keyboard-mouse control
+- **quick**, **responsive,**, and **consisten**, making it an **actually viable replacement** for keyboard-mouse control
 
 HoloWM is the **closest** you will get to tony stark tossing windows around.
 
