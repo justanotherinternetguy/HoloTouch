@@ -59,5 +59,6 @@ class OverlayState:
     # "listening" while the microphone is recorded, "writing" while that is turned into text, and
     # "failed" for a moment when it could not be; "" otherwise. The engine only ever says the first.
     dictation: str = ""
+    key: str = ""  # for a moment after a gesture presses a key: what that did, "Enter" or "New tab"
     track: int = 0  # for a moment after a track is skipped: 1 for the next one, -1 for the one before
     paused: bool = False

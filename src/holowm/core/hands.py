@@ -119,15 +119,6 @@ class Hand:
         while self.history and now - self.history[0][0] > _HISTORY_S:
             self.history.popleft()
 
-    def position_at(self, t: float) -> tuple[float, float]:
-        """Unclamped position at or just before time t (oldest known if t predates history)."""
-        best = self.history[0]
-        for entry in self.history:
-            if entry[0] > t:
-                break
-            best = entry
-        return best[1], best[2]
-
     def peak_velocity(self, now: float, window_s: float, span_s: float = 0.05):
         """Fastest velocity (px/s) over the last window_s, and when it happened."""
         entries = [e for e in self.history if now - e[0] <= window_s + span_s]

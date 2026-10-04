@@ -229,6 +229,7 @@ class Bridge(QObject):
             "clickX": state.click_x,
             "clickY": state.click_y,
             "track": state.track,
+            "key": state.key,
             "dictation": state.dictation,
             "paused": state.paused,
         }

@@ -1,10 +1,16 @@
 """Scroll the window under the hand by tilting the extended index and middle fingers.
 
-The hand stays where it is. How far the fingers lean from where they came to rest sets the
-speed, so holding a tilt keeps scrolling; opening the hand stops it.
+The hand stays where it is, and holding a tilt keeps scrolling; opening the hand stops it.
 
-Fingers held upright read as 20 to 28 degrees, and leaned back from there they read no lower. So
-scrolling up takes fingers that rest leaning toward the camera.
+The two ways are not alike, because the fingers do not have the same room each way. Held up,
+they come to rest leaning toward the camera, anywhere up to 60 degrees, and get there a second or
+more after the pose is made. Tipped down they point at the camera or below it, which reads as
+70 to 190 degrees. Leaned back they can only straighten up, which reads as 20 to 28 degrees, and
+no lower however far back the hand goes. So:
+
+- Tipped further toward the camera than a resting hand ever leans, they scroll down, the faster
+  the further. A lean short of that scrolls nothing, and where it is held is where they rest now.
+- Leaned back from where they rest, they scroll up, and reach the top speed sooner.
 
 Tipped toward the camera, the two fingers no longer read as extended, and tipped far enough down
 they lie over the rest of the hand in the picture: the hand comes out as neutral, as a pinch,
@@ -35,6 +41,15 @@ _STILL_DEG = 3.0
 # Fingers held up sag, by several degrees a second. While they are still and within the dead
 # zone, the resting tilt follows them.
 _RECENTRE_S = 0.5
+# Fingers held up also relax toward the camera, by 20 or 30 degrees over a second or two. Where
+# they are held short of scrolling down, the resting tilt follows them, more slowly than it does
+# a sag: a lean the hand only passes through should not move it.
+_RELAX_S = 0.8
+# Scrolling down speeds up over at least this much tilt, however near the fingers rest to where it begins.
+_SHORTEST_RAMP_DEG = 20.0
+# Fingers straighten up for a moment before they are flicked down, and on the way to an open
+# hand. Leaned back, they scroll up only once they have stayed there this long.
+_BACK_HOLD_S = 0.3
 _UNSURE_S = 0.3  # how long the hand may be unclear before the gesture is taken to be over
 # Tipped 50 to 80 degrees and held there, the index and middle fingers read too bent to count as
 # extended, but are still this much straighter than the ring finger and the pinky: 0.17 and more.
@@ -68,6 +83,7 @@ class ScrollInteraction(Interaction):
         self._tilt = self._read(hand)
         self._rest: float | None = None  # the tilt that means no scrolling
         self._tipped = False  # tipped forward to scroll down, and not yet back at rest
+        self._back_since: float | None = None  # when the fingers leaned back past the dead zone
         # Wheel events are delivered to the pointer position, so park the pointer under the hand
         # for the duration of the gesture and put it back afterwards.
         self._saved_pointer = self.backend.pointer_pos()
@@ -108,14 +124,29 @@ class ScrollInteraction(Interaction):
         # and a hand opening reads as fingers leaning right back. So past it nothing scrolls until
         # they are still, and if that is within twice the dead zone, there is where they rest now.
         back = self._tipped and lean < 0.0
-        if still and abs(lean) < (2.0 if back else 1.0) * dead:
-            self._rest += lean * (1.0 - math.exp(-dt / _RECENTRE_S))
+        down_from = max(self._rest + dead, g.scroll_down_from_deg)
+        if still and self._tilt < down_from and lean > -(2.0 if back else 1.0) * dead:
+            follow = _RECENTRE_S if lean < dead else _RELAX_S
+            self._rest += lean * (1.0 - math.exp(-dt / follow))
             lean = self._tilt - self._rest
+            down_from = max(self._rest + dead, g.scroll_down_from_deg)
             if abs(lean) < dead:
                 self._tipped = False
-        span = max(g.scroll_full_deg - dead, 1e-6)
-        self.rate = math.copysign(min(max((abs(lean) - dead) / span, 0.0), 1.0), lean)
+        if lean > -dead:
+            self._back_since = None
+        elif self._back_since is None:
+            self._back_since = now
+        if self._tilt >= down_from:
+            full_at = max(self._rest + g.scroll_full_deg, down_from + _SHORTEST_RAMP_DEG)
+            self.rate = min((self._tilt - down_from) / (full_at - down_from), 1.0)
+        elif self._back_since is not None and now - self._back_since >= _BACK_HOLD_S:
+            self.rate = -min((-lean - dead) / max(g.scroll_up_full_deg - dead, 1e-6), 1.0)
+        else:
+            self.rate = 0.0
         if back and (not still or abs(lean) < 2.0 * dead):
+            self.rate = 0.0
+        # A hand that is opening reads as fingers leaning back, before it reads as open.
+        if self.rate < 0.0 and max(straight[2:]) > self.cfg.pose.extend_exit:
             self.rate = 0.0
         if self.rate:
             self._tipped = self.rate > 0.0

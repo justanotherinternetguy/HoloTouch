@@ -368,23 +368,43 @@ def test_moving_fist_does_not_close(sim):
     assert not sim.commands("close")
 
 
-def test_open_palm_swipe_switches_workspace_once(sim):
+def test_open_palm_swept_to_the_right_presses_enter_once(sim):
+    arm(sim, at=(700, 900))
+    sim.glide(0.25, "open", (700, 900), (2000, 900))
+    assert sim.backend.commands == [("press_key", "Return")]
+    assert sim.engine.overlay.key == "Enter"
+    # The stroke back does nothing, and the note goes away again.
+    sim.glide(0.25, "open", (2000, 900), (700, 900))
+    sim.hold(1.5, ("open", 700, 900))
+    assert sim.backend.commands == [("press_key", "Return")] and sim.engine.overlay.key == ""
+    # Swept again, it is pressed again.
+    sim.glide(0.25, "open", (700, 900), (2000, 900))
+    assert sim.backend.commands == [("press_key", "Return")] * 2
+
+
+def test_no_swipe_switches_workspace_and_one_to_the_left_does_nothing(sim):
     arm(sim, at=(2000, 900))
     sim.glide(0.25, "open", (2000, 900), (700, 900))
-    assert sim.commands("switch_desktop") == [("switch_desktop", 1)]
-    # The return stroke must not undo it.
+    sim.hold(0.5, ("open", 700, 900))
+    assert not sim.backend.commands and sim.engine.overlay.hud_desktop == -1
     sim.glide(0.25, "open", (700, 900), (2000, 900))
-    sim.hold(0.3, ("open", 2000, 900))
-    assert sim.commands("switch_desktop") == [("switch_desktop", 1)]
-    assert sim.engine.overlay.hud_desktop == 1
+    assert not sim.commands("switch_desktop") and sim.backend.current_desktop() == 0
+
+
+def test_hand_drawn_back_to_the_left_first_still_presses_enter(sim):
+    arm(sim, at=(1400, 900))
+    sim.glide(0.15, "open", (1400, 900), (900, 900))
+    sim.glide(0.2, "open", (900, 900), (2100, 900))
+    assert sim.backend.commands == [("press_key", "Return")]
 
 
 def test_slow_or_relaxed_hand_motion_is_not_a_swipe(sim):
-    arm(sim, at=(2000, 900))
-    sim.glide(1.5, "open", (2000, 900), (700, 900))
-    sim.hold(0.3, ("neutral", 700, 900))
+    arm(sim, at=(700, 900))
+    sim.glide(1.5, "open", (700, 900), (2000, 900))
+    sim.hold(0.3, ("neutral", 2000, 900))
+    sim.glide(0.25, "neutral", (2000, 900), (700, 900))
     sim.glide(0.25, "neutral", (700, 900), (2000, 900))
-    assert not sim.commands("switch_desktop")
+    assert not sim.backend.commands
 
 
 def fingers(tilt, at=CENTRE):
@@ -396,36 +416,42 @@ def lean(sim, start, end, seconds=0.3, at=CENTRE):
     sim.run(seconds, lambda f: [fingers(start + (end - start) * f, at)])
 
 
-def top_speed_fraction(sim, tilt):
+REST = 40  # how two fingers held up come to rest: leaning this far toward the camera
+UPRIGHT = 15  # straightened right up, which is as far back as fingers go
+
+
+def down_speed(sim, tilt, rest=REST):
+    """The share of the top speed that fingers resting at `rest` scroll down at, tipped to `tilt`."""
     g = sim.cfg.gesture
-    return (abs(tilt) - g.scroll_dead_deg) / (g.scroll_full_deg - g.scroll_dead_deg)
+    start = max(rest + g.scroll_dead_deg, g.scroll_down_from_deg)
+    return min(max((tilt - start) / (max(rest + g.scroll_full_deg, start + 20) - start), 0.0), 1.0)
 
 
 def test_tilting_two_fingers_scrolls_while_the_hand_stays_still(sim):
     sim.backend.warp_pointer(50, 60)
     sim.backend.commands.clear()
     arm(sim)
-    sim.hold(0.6, fingers(0))
+    sim.hold(0.6, fingers(REST))
     assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
     assert sim.commands("warp_pointer")[0][1:] == pytest.approx(CENTRE, abs=3)
-    # Tip the fingers forward and hold them there: it keeps scrolling down at a steady rate.
-    lean(sim, 0, 30)
-    sim.hold(0.4, fingers(30))
+    # Tip the fingers at the camera and hold them there: it keeps scrolling down at a steady rate.
+    lean(sim, REST, 70)
+    sim.hold(0.4, fingers(70))
     before = sim.backend.scrolled
-    sim.hold(1.0, fingers(30))
-    expected = top_speed_fraction(sim, 30) * sim.cfg.gesture.scroll_speed
-    assert sim.backend.scrolled - before == pytest.approx(-expected, rel=0.03)
-    assert sim.engine.overlay.hands[0].scroll == pytest.approx(top_speed_fraction(sim, 30), abs=0.03)
+    sim.hold(1.0, fingers(70))
+    expected = down_speed(sim, 70) * sim.cfg.gesture.scroll_speed
+    assert 0 < down_speed(sim, 70) < 1 and sim.backend.scrolled - before == pytest.approx(-expected, rel=0.03)
+    assert sim.engine.overlay.hands[0].scroll == pytest.approx(down_speed(sim, 70), abs=0.03)
     # Back where they started, it stops.
-    lean(sim, 30, 0)
-    sim.hold(0.4, fingers(0))
+    lean(sim, 70, REST)
+    sim.hold(0.4, fingers(REST))
     stopped = sim.backend.scrolled
-    sim.hold(0.5, fingers(0))
+    sim.hold(0.5, fingers(REST))
     assert sim.backend.scrolled == stopped and sim.engine.overlay.hands[0].scroll == 0
-    # Leaning them back scrolls up.
-    lean(sim, 0, -25)
-    sim.hold(0.6, fingers(-25))
-    assert sim.backend.scrolled > stopped + 2
+    # Straightening them up scrolls up.
+    lean(sim, REST, UPRIGHT)
+    sim.hold(0.8, fingers(UPRIGHT))
+    assert sim.backend.scrolled > stopped + 5
     # Opening the hand ends it at once and puts the pointer back.
     sim.hold(0.2, ("open", *CENTRE))
     assert not sim.engine.overlay.scrolling
@@ -439,52 +465,127 @@ def test_tilting_two_fingers_scrolls_while_the_hand_stays_still(sim):
 
 def test_scroll_speed_follows_the_tilt_up_to_a_limit(sim):
     arm(sim)
-    sim.hold(0.5, fingers(0))
+    sim.hold(0.5, fingers(REST))
     rates = []
-    for tilt in (20, 40, 70):
-        lean(sim, rates and rates[-1][0] or 0, tilt)
+    for tilt in (65, 80, 120):
+        lean(sim, rates and rates[-1][0] or REST, tilt)
         sim.hold(0.4, fingers(tilt))
         before = sim.backend.scrolled
         sim.hold(0.5, fingers(tilt))
         rates.append((tilt, (before - sim.backend.scrolled) / 0.5))
     top = sim.cfg.gesture.scroll_speed
-    assert rates[0][1] == pytest.approx(top_speed_fraction(sim, 20) * top, rel=0.05)
-    assert rates[1][1] == pytest.approx(top, rel=0.05)
+    assert rates[0][1] == pytest.approx(0.25 * top, rel=0.05)
+    assert rates[1][1] == pytest.approx(top, rel=0.05)  # REST and scroll_full_deg on from it
     assert rates[2][1] == pytest.approx(top, rel=0.05)  # no faster beyond the full tilt
+
+
+def test_leaning_back_reaches_the_top_speed_sooner_than_tipping_forward(sim):
+    g = sim.cfg.gesture
+    arm(sim)
+    sim.hold(0.6, fingers(REST))
+    rates = []
+    for back in (16, g.scroll_up_full_deg):
+        lean(sim, REST, REST - back)
+        sim.hold(0.6, fingers(REST - back))
+        before = sim.backend.scrolled
+        sim.hold(0.5, fingers(REST - back))
+        rates.append((sim.backend.scrolled - before) / 0.5)
+        lean(sim, REST - back, REST)
+        sim.hold(0.4, fingers(REST))
+    assert rates[0] == pytest.approx((16 - g.scroll_dead_deg) / (g.scroll_up_full_deg - g.scroll_dead_deg) * g.scroll_speed, rel=0.08)
+    assert rates[1] == pytest.approx(g.scroll_speed, rel=0.05)
+    assert g.scroll_up_full_deg < g.scroll_full_deg
+
+
+def test_fingers_relaxing_toward_the_camera_scroll_nothing_and_rest_where_they_end_up(sim):
+    arm(sim)
+    # Held up straight to begin with, as a hand often is, they relax forward over the next second.
+    sim.hold(0.6, fingers(25))
+    lean(sim, 25, 55, seconds=0.3)
+    sim.hold(3.0, fingers(55))
+    assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
+    # Straightened up again from there, they scroll up: where they relaxed to is where they rest.
+    lean(sim, 55, 25, seconds=0.2)
+    sim.hold(1.0, fingers(25))
+    assert sim.backend.scrolled > 10
+    # And tipped on from there, down.
+    up = sim.backend.scrolled
+    lean(sim, 25, 100)
+    sim.hold(0.5, fingers(100))
+    assert sim.backend.scrolled < up - 5
+
+
+def test_a_lean_only_passed_through_does_not_move_where_the_fingers_rest(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(30))
+    lean(sim, 30, 100)  # on the way down they pass every lean there is
+    sim.hold(0.5, fingers(100))
+    lean(sim, 100, 30, seconds=0.2)
+    sim.hold(0.6, fingers(30))
+    stopped = sim.backend.scrolled
+    sim.hold(1.0, fingers(30))
+    assert sim.backend.scrolled == stopped  # back where they rested, nothing scrolls either way
+
+
+def test_fingers_straightened_only_for_a_moment_do_not_scroll_up(sim):
+    arm(sim)
+    sim.hold(0.6, fingers(REST))
+    # Before a flick down the fingers straighten up, as an arm is drawn back to throw.
+    lean(sim, REST, UPRIGHT, seconds=0.12)
+    sim.hold(0.1, fingers(UPRIGHT))
+    lean(sim, UPRIGHT, 55, seconds=0.07)
+    assert sim.backend.scrolled == 0
+    lean(sim, 55, 100, seconds=0.08)
+    sim.hold(0.3, fingers(100))
+    assert sim.backend.scrolled < -3
+
+
+def test_a_hand_opening_from_rest_does_not_scroll_up(sim):
+    arm(sim)
+    sim.hold(1.0, fingers(REST))
+    # The ring finger and the pinky come up while the hand still reads as two fingers, and the
+    # two fingers read as leaning further and further back.
+    sim.run(0.5, lambda f: [("open", *CENTRE, "Right", REST - 30 * f)])
+    sim.hold(0.5, ("open", *CENTRE, "Right", REST - 30))
+    assert sim.backend.scrolled == 0 and not sim.engine.overlay.scrolling
 
 
 def test_moving_the_hand_or_a_small_wobble_does_not_scroll(sim):
     arm(sim)
-    sim.hold(0.5, fingers(0))
-    sim.run(0.6, lambda f: [fingers(5 * math.sin(f * 12), (900, 700 - 300 * f))])
-    sim.hold(0.3, fingers(0, (900, 400)))
+    sim.hold(0.5, fingers(REST))
+    sim.run(0.6, lambda f: [fingers(REST + 5 * math.sin(f * 12), (900, 700 - 300 * f))])
+    sim.hold(0.3, fingers(REST, (900, 400)))
     assert sim.backend.scrolled == 0 and sim.engine.overlay.scrolling
 
 
 def test_scrolling_starts_from_however_the_fingers_were_held(sim):
     arm(sim)
-    sim.hold(0.6, fingers(40))  # like a real hand, already leaning toward the camera
-    assert sim.backend.scrolled == 0
-    lean(sim, 40, 70)
-    sim.hold(0.5, fingers(70))
-    assert sim.backend.scrolled < -3
+    for rest, tipped in ((20, 75), (70, 105)):  # held straight up, or already pointing most of the way to the camera
+        sim.hold(0.8, fingers(rest))
+        before = sim.backend.scrolled
+        sim.hold(0.5, fingers(rest))
+        assert sim.backend.scrolled == before
+        lean(sim, rest, tipped)
+        sim.hold(0.5, fingers(tipped))
+        assert sim.backend.scrolled < before - 3
+        sim.hold(0.4, ("open", *CENTRE))
 
 
 def test_unclear_pose_pauses_scrolling_without_losing_the_resting_tilt(sim):
     arm(sim)
-    sim.hold(0.5, fingers(0))
-    lean(sim, 0, 30)
-    sim.hold(0.4, fingers(30))
+    sim.hold(0.5, fingers(REST))
+    lean(sim, REST, 75)
+    sim.hold(0.4, fingers(75))
     gesture = sim.engine.active
     # The middle finger is misread as bent for a few frames.
     sim.hold(0.13, ("point", *CENTRE))
     paused = sim.backend.scrolled
     sim.hold(0.07, ("point", *CENTRE))
     assert sim.backend.scrolled == paused and sim.engine.active is gesture
-    sim.hold(0.15, fingers(30))
+    sim.hold(0.15, fingers(75))
     assert sim.engine.active is gesture
-    sim.hold(0.5, fingers(30))
-    assert sim.backend.scrolled < paused - 3  # still scrolling: 30 degrees is still a tilt
+    sim.hold(0.5, fingers(75))
+    assert sim.backend.scrolled < paused - 3  # still scrolling: it is the tilt it was
     # Staying unclear for longer ends it.
     sim.hold(0.8, ("point", *CENTRE))
     assert sim.engine.active is None
@@ -506,34 +607,35 @@ def test_shaky_tilt_reading_still_scrolls_at_a_steady_speed(sim):
         return lambda _: [fingers(tilt + rng.normal(0, 3.0))]
 
     arm(sim)
-    sim.run(1.5, shaky(0))
+    sim.run(1.5, shaky(REST))
     assert sim.backend.scrolled == 0  # jitter around the resting tilt does not creep
-    sim.run(0.3, lambda f: [fingers(30 * f + rng.normal(0, 3.0))])
-    sim.run(0.6, shaky(30))
-    rates = scroll_rates(sim, 1.5, shaky(30))
-    assert np.mean(rates) == pytest.approx(top_speed_fraction(sim, 30), abs=0.08)
-    assert np.std(rates) < 0.035  # 3 degrees of jitter alone would be 0.09
+    sim.run(0.3, lambda f: [fingers(REST + 30 * f + rng.normal(0, 3.0))])
+    sim.run(0.6, shaky(70))
+    rates = scroll_rates(sim, 1.5, shaky(70))
+    assert np.mean(rates) == pytest.approx(down_speed(sim, 70), abs=0.08)
+    assert np.std(rates) < 0.06  # 3 degrees of jitter alone would be 0.15
 
 
 def test_scroll_speed_keeps_up_with_a_quick_tilt(sim):
     arm(sim)
-    sim.hold(0.6, fingers(0))
-    lean(sim, 0, 30, seconds=0.2)
-    sim.hold(0.1, fingers(30))  # a tenth of a second after the fingers arrive
-    assert sim.engine.overlay.hands[0].scroll == pytest.approx(top_speed_fraction(sim, 30), abs=0.08)
-    lean(sim, 30, 0, seconds=0.2)
-    sim.hold(0.1, fingers(0))
+    sim.hold(0.6, fingers(REST))
+    lean(sim, REST, 70, seconds=0.2)
+    sim.hold(0.1, fingers(70))  # a tenth of a second after the fingers arrive
+    # ...the tilt it works from is within three degrees of where they are.
+    assert sim.engine.overlay.hands[0].scroll == pytest.approx(down_speed(sim, 70), abs=down_speed(sim, 63))
+    lean(sim, 70, REST, seconds=0.2)
+    sim.hold(0.1, fingers(REST))
     stopped = sim.backend.scrolled
-    sim.hold(0.5, fingers(0))
+    sim.hold(0.5, fingers(REST))
     assert sim.backend.scrolled == stopped
 
 
 def test_scroll_direction_can_be_inverted(sim):
     sim.cfg.gesture.scroll_invert = True
     arm(sim)
-    sim.hold(0.5, fingers(0))
-    lean(sim, 0, 30)
-    sim.hold(0.5, fingers(30))
+    sim.hold(0.5, fingers(REST))
+    lean(sim, REST, 75)
+    sim.hold(0.5, fingers(75))
     assert sim.backend.scrolled > 3
 
 
@@ -560,14 +662,14 @@ def test_the_resting_tilt_is_where_the_fingers_come_to_a_stop(sim):
 
 def test_fingers_sagging_slowly_do_not_start_to_scroll(sim):
     arm(sim)
-    sim.hold(0.6, fingers(0))
-    lean(sim, 0, 15, seconds=2.5)
-    sim.hold(0.5, fingers(15))
+    sim.hold(0.6, fingers(55))
+    lean(sim, 55, 70, seconds=2.5)
+    sim.hold(0.8, fingers(70))
     assert sim.engine.overlay.scrolling and sim.backend.scrolled == 0
     # A tilt is then measured from where they have sagged to.
-    lean(sim, 15, 45, seconds=0.2)
-    sim.hold(0.4, fingers(45))
-    assert sim.engine.overlay.hands[0].scroll == pytest.approx(top_speed_fraction(sim, 30), abs=0.08)
+    lean(sim, 70, 100, seconds=0.2)
+    sim.hold(0.4, fingers(100))
+    assert sim.engine.overlay.hands[0].scroll == pytest.approx(down_speed(sim, 100, rest=70), abs=0.08)
 
 
 def test_fingers_coming_back_past_their_resting_place_do_not_scroll_back(sim):
@@ -713,13 +815,17 @@ def test_a_real_tilt_held_short_of_steep_scrolls_all_the_way_and_closes_nothing(
     # degrees and held for three: a hand that reads as a fist, with a tilt that is not always steep.
     sim = Sim()
     sim.backend.add_window(WindowInfo(1, 0, 0, *sim.screen, title="under the hand wherever it goes"))
-    held_still = None
+    held_still, slowest = None, 1.0
     for t, started in replay(sim, recorded_tilt("held_short_of_steep")):
         if held_still is None and t >= 7.8:
             held_still = sim.backend.scrolled
+        if 8.3 <= t <= 11.0:
+            slowest = min(slowest, sim.engine.overlay.hands[0].scroll)
     assert started == ["ScrollInteraction"]
     assert abs(held_still) < 0.5
-    assert sim.backend.scrolled < -58  # three seconds at the top speed of 20 notches a second, without a pause
+    # Three seconds at up to the top speed of 20 notches a second, slower for the second in
+    # which the fingers come up to 70 degrees, and never stopping.
+    assert sim.backend.scrolled < -48 and slowest > 0.3
     assert not [c for c in sim.backend.commands if c[0] != "warp_pointer"]
 
 
@@ -1504,3 +1610,118 @@ def test_letter_y_held_over_a_window_does_not_close_it(sim):
     arm(sim)
     sim.hold(1.5, ("y_sign", *CENTRE))
     assert not sim.commands("close") and sim.engine.overlay.close_progress == 0.0
+
+
+PX_PER_M = 1.2 * 2880 * 1.08 / 0.70  # how far across the screen a hand goes for a metre across the camera's view
+
+
+def palms(metres, y=900):
+    """Both hands, open, with their palms this far apart about the middle of the screen."""
+    half = metres * PX_PER_M / 2
+    return [("open", 1440 - half, y, "Right"), ("open", 1440 + half, y, "Left")]
+
+
+def clap(sim, wide=0.30, seconds=0.15, vanish=False):
+    """The hands come together from `wide` metres apart and part again."""
+    sim.run(seconds, lambda f: palms(wide - (wide - 0.03) * f))
+    if vanish:  # as they meet they are read as no hands at all
+        sim.hold(0.1)
+    sim.run(seconds, lambda f: palms(0.03 + (wide - 0.03) * f))
+
+
+def browser_sim(wm_class="Google-chrome"):
+    sim = Sim()
+    sim.backend.add_window(WindowInfo(1, **WIN, title="in front", wm_class=wm_class))
+    sim.backend.activate(1)
+    sim.backend.commands.clear()
+    sim.hold(0.4, *palms(0.30))
+    return sim
+
+
+@pytest.mark.parametrize("wm_class", ["Google-chrome", "librewolf", "firefox", "Thorium-browser", "org.gnome.Epiphany"])
+def test_two_claps_open_a_new_tab_in_a_web_browser(wm_class):
+    sim = browser_sim(wm_class)
+    clap(sim)
+    assert not sim.backend.commands  # one clap is not yet two
+    clap(sim)
+    assert sim.backend.commands == [("press_key", "ctrl+t")]
+    assert sim.engine.overlay.key == "New tab"
+    sim.hold(1.5, *palms(0.30))
+    assert sim.backend.commands == [("press_key", "ctrl+t")] and sim.engine.overlay.key == ""
+    # Clapped twice again, another.
+    clap(sim)
+    clap(sim)
+    assert sim.backend.commands == [("press_key", "ctrl+t")] * 2
+
+
+@pytest.mark.parametrize("wm_class", ["com.mitchellh.ghostty", "Zenity", "Thunar", ""])
+def test_two_claps_do_nothing_when_it_is_not_a_browser_that_has_the_keyboard(wm_class):
+    sim = browser_sim(wm_class)
+    clap(sim)
+    clap(sim)
+    sim.hold(0.3, *palms(0.30))
+    assert not sim.backend.commands and sim.engine.overlay.key == ""
+
+
+def test_the_browsers_are_named_in_the_configuration():
+    sim = browser_sim("Nyxt")
+    sim.cfg.gesture.clap_browsers = "nyxt, chrome"
+    clap(sim)
+    clap(sim)
+    assert sim.backend.commands == [("press_key", "ctrl+t")]
+
+
+def test_hands_read_as_gone_when_they_meet_have_still_clapped():
+    sim = browser_sim()
+    clap(sim, vanish=True)
+    clap(sim, vanish=True)
+    assert sim.backend.commands == [("press_key", "ctrl+t")]
+
+
+def test_one_clap_or_two_far_apart_in_time_open_nothing():
+    sim = browser_sim()
+    clap(sim)
+    sim.hold(1.2, *palms(0.30))
+    clap(sim)
+    sim.hold(1.2, *palms(0.30))
+    assert not sim.backend.commands
+
+
+def test_hands_brought_together_slowly_have_not_clapped():
+    sim = browser_sim()
+    clap(sim, seconds=0.8)
+    clap(sim, seconds=0.8)
+    assert not sim.backend.commands
+
+
+def test_hands_held_together_or_never_apart_have_not_clapped():
+    sim = browser_sim()
+    sim.run(0.15, lambda f: palms(0.30 - 0.27 * f))
+    sim.hold(1.0, *palms(0.03))  # as in prayer
+    # A second hand read where the first one is, as happens for a frame or two, and gone again.
+    for _ in range(3):
+        sim.hold(0.1, ("open", 1440, 900, "Right"))
+        sim.hold(0.07, *palms(0.02))
+    assert not sim.backend.commands
+
+
+def test_a_wide_clap_is_not_a_swipe_to_the_right():
+    sim = browser_sim()
+    sim.run(1.0, lambda f: palms(0.30 + 0.2 * f))
+    # Each hand crosses a third of the screen and more: one of them to the right as they meet, the other as they part.
+    clap(sim, wide=0.5, seconds=0.2)
+    sim.hold(0.1, *palms(0.5))
+    assert not sim.commands("press_key")
+    clap(sim, wide=0.5, seconds=0.2)
+    sim.hold(0.5, *palms(0.5))
+    assert sim.backend.commands == [("press_key", "ctrl+t")]
+
+
+def test_claps_made_while_a_gesture_is_going_on_open_nothing():
+    sim = browser_sim()
+    sim.hold(0.6, ("two_finger", 700, 900, "Right", REST), ("open", 2200, 900, "Left"))
+    assert isinstance(sim.engine.active, ScrollInteraction)
+    for _ in range(2):
+        sim.run(0.15, lambda f: [("two_finger", 700, 900, "Right", REST), ("open", 2200 - 1340 * f, 900, "Left")])
+        sim.run(0.15, lambda f: [("two_finger", 700, 900, "Right", REST), ("open", 860 + 1340 * f, 900, "Left")])
+    assert not sim.commands("press_key")

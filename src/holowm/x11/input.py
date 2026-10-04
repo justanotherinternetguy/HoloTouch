@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 _KEY_PRESS, _KEY_RELEASE = 2, 3
 _BUTTON_PRESS, _BUTTON_RELEASE = 4, 5
 _NAMED_KEYS = {"space": 0x20, "Return": 0xFF0D}  # X keysyms; a Latin-1 character is its own
+_MODIFIERS = {"ctrl": 0xFFE3, "shift": 0xFFE1, "alt": 0xFFE9}  # the left one of each
 _WHEEL_UP, _WHEEL_DOWN = 4, 5
 _HI_RES_PER_NOTCH = 120
 
@@ -79,22 +80,25 @@ def press_button(x: X11, down: bool, button: int = 1) -> None:
 def press_key(x: X11, key: str) -> bool:
     """Press and release the key that types `key` unshifted, in whichever window has the keyboard.
 
-    False if no key on the keyboard does.
+    "ctrl+t" is t with Control held; shift and alt are held the same way. False if the keyboard
+    has no such key, and then nothing is pressed.
     """
-    keysym = _NAMED_KEYS.get(key) or (ord(key) if len(key) == 1 else None)
-    if keysym is None:
-        return False
+    *held, key = key.split("+") if len(key) > 1 else [key]
+    keysyms = [_MODIFIERS.get(name) for name in held] + [_NAMED_KEYS.get(key) or (ord(key) if len(key) == 1 else None)]
     setup = x.conn.get_setup()
     first, count = setup.min_keycode, setup.max_keycode - setup.min_keycode + 1
     mapping = x.core.GetKeyboardMapping(first, count).reply()
-    for index in range(count):
-        if mapping.keysyms[index * mapping.keysyms_per_keycode] == keysym:
-            xtest = x.conn(xcffib.xtest.key)
-            xtest.FakeInput(_KEY_PRESS, first + index, 0, x.root, 0, 0, 0)
-            xtest.FakeInput(_KEY_RELEASE, first + index, 0, x.root, 0, 0, 0)
-            x.conn.flush()
-            return True
-    return False
+    unshifted = [mapping.keysyms[index * mapping.keysyms_per_keycode] for index in range(count)]
+    if any(keysym is None or keysym not in unshifted for keysym in keysyms):
+        return False
+    keycodes = [first + unshifted.index(keysym) for keysym in keysyms]
+    xtest = x.conn(xcffib.xtest.key)
+    for keycode in keycodes:
+        xtest.FakeInput(_KEY_PRESS, keycode, 0, x.root, 0, 0, 0)
+    for keycode in reversed(keycodes):
+        xtest.FakeInput(_KEY_RELEASE, keycode, 0, x.root, 0, 0, 0)
+    x.conn.flush()
+    return True
 
 
 def make_scroller(mode: str, x: X11):

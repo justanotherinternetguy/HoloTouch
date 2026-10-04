@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Shapes
+import "../../ui"
 
 // A small looping demonstration of one gesture: an illustrated hand, and what it acts on.
 // Drawn on a 170 by 104 unit stage and scaled by `u`. With `playing` off, the hand holds its pose.
@@ -44,7 +45,7 @@ Rectangle {
         sourceComponent: ({
             "grab": grab, "move": move, "resize": resize, "flick": flick, "edge": edge, "click": click,
             "menu": menu, "close": close, "scroll": scroll, "knob": knob, "swipe": swipe,
-            "switcher": switcher, "camera": camera, "dictate": dictate
+            "switcher": switcher, "camera": camera, "dictate": dictate, "clap": clap
         })[root.gesture] || palm
     }
 
@@ -268,14 +269,30 @@ Rectangle {
     Component {
         id: swipe
         Item {
+            // The open hand is swept to the right, and the Enter key goes down as it gets there.
+            Rectangle {
+                id: keycap
+                x: 14; y: 60; width: 34; height: 30; radius: 8
+                color: theme.paper
+                border.color: theme.ink
+                border.width: 2.5
+                Icon { anchors.centerIn: parent; name: "enter"; size: 18; stroke: 2.6 }
+                SequentialAnimation on scale {
+                    running: root.playing; loops: Animation.Infinite
+                    PauseAnimation { duration: 1150 }
+                    NumberAnimation { to: 0.8; duration: 90 }
+                    NumberAnimation { to: 1; duration: 220; easing.type: Easing.OutBack }
+                    PauseAnimation { duration: 1260 }
+                }
+            }
             HandFigure {
-                x: 90; y: 20; size: 62; pose: "open"
+                x: 30; y: 12; size: 62; pose: "open"
                 SequentialAnimation on x {
                     running: root.playing; loops: Animation.Infinite
                     PauseAnimation { duration: 900 }
-                    NumberAnimation { to: 18; duration: 320; easing.type: Easing.OutCubic }
+                    NumberAnimation { to: 100; duration: 320; easing.type: Easing.OutCubic }
                     PauseAnimation { duration: 900 }
-                    NumberAnimation { to: 90; duration: 600; easing.type: Easing.InOutSine }
+                    NumberAnimation { to: 30; duration: 600; easing.type: Easing.InOutSine }
                 }
             }
         }
@@ -365,6 +382,43 @@ Rectangle {
                     Rectangle { width: 2.5; height: 16; y: -5; color: theme.coral }
                 }
             }
+        }
+    }
+    Component {
+        id: clap
+        Item {
+            id: clapping
+            // The hands meet twice, and a tab is added to the row of them.
+            property real apart: 1
+            property bool opened: true
+            SequentialAnimation {
+                running: root.playing; loops: Animation.Infinite
+                PropertyAction { target: clapping; property: "opened"; value: false }
+                PauseAnimation { duration: 500 }
+                NumberAnimation { target: clapping; property: "apart"; to: 0; duration: 130; easing.type: Easing.InQuad }
+                NumberAnimation { target: clapping; property: "apart"; to: 1; duration: 190; easing.type: Easing.OutQuad }
+                NumberAnimation { target: clapping; property: "apart"; to: 0; duration: 130; easing.type: Easing.InQuad }
+                PropertyAction { target: clapping; property: "opened"; value: true }
+                NumberAnimation { target: clapping; property: "apart"; to: 1; duration: 190; easing.type: Easing.OutQuad }
+                PauseAnimation { duration: 1500 }
+            }
+            Row {
+                x: 43; y: 8; spacing: 4
+                Repeater {
+                    model: 3
+                    Rectangle {
+                        required property int index
+                        visible: index < 2 || clapping.opened
+                        width: 26; height: 14; radius: 5
+                        color: index === 2 ? theme.mint : theme.paper
+                        border.color: theme.ink
+                        border.width: 2.5
+                    }
+                }
+            }
+            // A left hand is drawn its own width short of 96 units to the right of where it is put.
+            HandFigure { x: -8 - 22 * clapping.apart; y: 34; size: 60; pose: "open"; side: "left" }
+            HandFigure { x: 82 + 22 * clapping.apart; y: 34; size: 60; pose: "open" }
         }
     }
 }

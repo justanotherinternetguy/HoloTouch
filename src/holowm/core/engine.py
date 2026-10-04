@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 
 from holowm.config import Config
 from holowm.core.actions import ALL_DESKTOPS, WindowBackend, WindowInfo
+from holowm.core.claps import Claps, palm_gap
 from holowm.core.face import FaceTrack
 from holowm.core.hands import Hand, HandTracker
 from holowm.core.interactions import (
@@ -39,6 +41,7 @@ _CHIN_LEFT_S = 0.2
 _CHIN_LOST_S = 1.0
 _CLICK_SHOWN_S = 0.3  # how long the overlay marks where the mouse button went down
 _CLICK_AGAIN_S = 1.0  # a press this soon after the last, at the same place, lands exactly on it
+_CLAP_REACH = 0.35  # metres; hands nearer each other than this are clapping, or about to, not swiping
 
 
 class Engine:
@@ -49,6 +52,7 @@ class Engine:
         self.screen = backend.screen_size()
         self.tracker = HandTracker(cfg, self.screen)
         self.face = FaceTrack(cfg)
+        self.claps = Claps(cfg.gesture)
         self.active: Interaction | None = None
         self.overlay = OverlayState()
         self.paused = False
@@ -61,6 +65,8 @@ class Engine:
         self._track = 0  # the way the last track was skipped, shown until _track_until
         self._track_until = 0.0
         self._swipe_block_until = 0.0
+        self._key = ""  # the key last pressed by a gesture, shown until _key_until
+        self._key_until = 0.0
         self._focus_order: list[int] = []  # window ids, most recently focused first
         self._chin_since: float | None = None  # when a hand not yet acted on came to the chin
         self._chin_held = False  # a hand is still resting there after being acted on
@@ -75,6 +81,7 @@ class Engine:
     def on_frame(self, frame: FrameSample) -> None:
         if not self.paused:
             self.tracker.update(frame)
+            self.claps.update(list(self.tracker.hands.values()), frame.t_capture)
             if frame.face is not None:
                 self.face.update(frame.face, frame.t_capture)
 
@@ -85,6 +92,7 @@ class Engine:
         if paused:
             self.cancel_active()
             self.tracker.hands.clear()
+            self.claps.reset()
         log.info("paused" if paused else "resumed")
 
     def cancel_active(self) -> None:
@@ -243,6 +251,9 @@ class Engine:
                 self._try_begin(now)
             if self.active is None:
                 self._on_swipe(now)
+            # A clap made while a gesture is going on is no clap: those hands are busy.
+            if self.claps.take() and self.active is None:
+                self._on_claps(now)
             if self.active is not None and self.active is not was_active:
                 log.debug("begin %s", type(self.active).__name__)
         self._build_overlay(now)
@@ -288,10 +299,15 @@ class Engine:
             if self.active is not None:
                 return
 
-    def detect_swipe(self, now: float) -> int | None:
-        """The direction (+1 right, -1 left) of a fast sideways open-palm stroke that has just completed."""
+    def detect_swipe(self, now: float) -> bool:
+        """True once for each fast open-palm stroke to the right, as it completes."""
         g = self.cfg.gesture
-        for hand in self.tracker.hands.values():
+        # Hands that are near each other, or have just parted, are clapping: each one sweeps
+        # sideways as it comes and as it goes.
+        hands = list(self.tracker.hands.values())
+        if now - self.claps.met_at < g.swipe_cooldown_ms / 1000.0 or (len(hands) == 2 and palm_gap(*hands) < _CLAP_REACH):
+            return False
+        for hand in hands:
             if not hand.swipe_ready:
                 if hand.speed < _SWIPE_REARM_SPEED:
                     hand.swipe_ready, hand.swipe_since = True, now
@@ -300,24 +316,34 @@ class Engine:
                 continue
             if hand.features.facing < g.swipe_min_facing:
                 continue
-            # Only motion made with the open palm counts.
+            # Only motion made with the open palm counts, and it is measured from as far left as
+            # the hand went: a hand is often drawn back that way first.
             start = max(now - g.swipe_window_ms / 1000.0, hand.pose_since, hand.swipe_since)
-            x0, y0 = hand.position_at(start)
+            x0, y0 = min(((x, y) for t, x, y in hand.history if t >= start), default=(hand.ux, hand.uy))
             dx, dy = hand.ux - x0, hand.uy - y0
-            if abs(dx) < g.swipe_min_travel * self.screen[0] or abs(dx) < g.swipe_ratio * abs(dy):
+            if dx < g.swipe_min_travel * self.screen[0] or dx < g.swipe_ratio * abs(dy):
                 continue
             hand.swipe_ready = False
             self._swipe_block_until = now + g.swipe_cooldown_ms / 1000.0
-            return 1 if dx > 0 else -1
-        return None
+            return True
+        return False
 
     def _on_swipe(self, now: float) -> None:
-        direction = self.detect_swipe(now)
-        if direction is None:
+        if self.detect_swipe(now):
+            log.debug("swipe to the right: Enter")
+            self.backend.press_key("Return")
+            self._key, self._key_until = "Enter", now + self.cfg.ui.hud_ms / 1000.0
+
+    def _on_claps(self, now: float) -> None:
+        """Two claps: a new tab, if it is a web browser that has the keyboard."""
+        win = self.backend.active_window()
+        words = set(re.findall(r"[a-z0-9]+", win.wm_class.lower())) if win is not None else set()
+        if not words & set(self.cfg.gesture.clap_browsers.lower().replace(",", " ").split()):
+            log.debug("two claps, but %r is no web browser", win.wm_class if win is not None else None)
             return
-        target = self.desktop_target(-direction if self.cfg.gesture.swipe_natural else direction)
-        if target is not None:
-            self.switch_desktop(target, now)
+        log.debug("two claps: a new tab in %s", win.wm_class)
+        self.backend.press_key("ctrl+t")
+        self._key, self._key_until = "New tab", now + self.cfg.ui.hud_ms / 1000.0
 
     def side(self, hand: Hand | None) -> str:
         """Which of the user's hands this is: "left" or "right"."""
@@ -350,6 +376,8 @@ class Engine:
             overlay.hud_count = self.backend.desktop_count()
         if now < self._track_until:
             overlay.track = self._track
+        if now < self._key_until:
+            overlay.key = self._key
         if now - self._click_time < _CLICK_SHOWN_S:
             overlay.click, (overlay.click_x, overlay.click_y) = True, self._click
         self.overlay = overlay

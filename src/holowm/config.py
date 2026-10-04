@@ -134,12 +134,27 @@ class GestureConfig:
     wrap_workspaces: bool = False
     close_dwell_ms: float = 700.0
     close_radius: float = 0.06  # screen heights the fist may drift
+    # An open palm swept fast to the right presses the Enter key in whatever has the keyboard.
     swipe_min_travel: float = 0.30  # screen widths
     swipe_window_ms: float = 350.0
     swipe_ratio: float = 2.5
     swipe_cooldown_ms: float = 700.0
     swipe_min_facing: float = 0.5
-    swipe_natural: bool = True  # hand moves left -> next workspace
+    # No longer used: a swipe does not switch workspaces any more. Kept so that a config that
+    # sets it still loads.
+    swipe_natural: bool = True
+    # Hands clapped twice open a new tab, when the window that has the keyboard is a web browser.
+    # A clap is the two palms this many metres apart or more, then this near or nearer, within
+    # clap_close_ms. Two claps within clap_window_ms are the pair.
+    clap_apart: float = 0.14
+    clap_together: float = 0.08
+    clap_close_ms: float = 350.0
+    clap_window_ms: float = 900.0
+    # The browsers, each by a word of its window class: "Google-chrome" has the word chrome.
+    clap_browsers: str = (
+        "chrome chromium thorium firefox librewolf waterfox floorp zen brave vivaldi opera edge "
+        "falkon konqueror epiphany midori tor"
+    )
     # A closed hand touched to the chin opens the window switcher.
     chin_reach: float = 0.3  # how near the chin some part of the hand must come, in face heights
     # How much nearer the camera than the face the hand may look (1.0 = level with the face).
@@ -149,9 +164,15 @@ class GestureConfig:
     # the face is partly hidden, and its fingers measure up to 0.72.
     chin_curl: float = 0.78
     chin_hold_ms: float = 250.0
-    # Scrolling is set by how far the two extended fingers tilt from where they came to rest.
+    # Scrolling is set by how far the two extended fingers tilt from where they rest.
     scroll_dead_deg: float = 8.0  # tilt smaller than this does not scroll
-    scroll_full_deg: float = 40.0  # tilt that gives the top speed
+    scroll_full_deg: float = 40.0  # tilt toward the camera, from where the fingers rest, that gives the top speed
+    # Fingers have less room to lean back than to tip forward: this lean back gives the top speed.
+    scroll_up_full_deg: float = 25.0
+    # Fingers that lean toward the camera by less than this, as HandFeatures.finger_tilt reads it,
+    # are only resting, however far that is from where they first came to rest: a hand held up
+    # relaxes forward. Tipped further than this, and than the dead zone, they scroll down.
+    scroll_down_from_deg: float = 60.0
     scroll_speed: float = 20.0  # top speed in wheel notches per second
     scroll_invert: bool = False  # true: tilting the fingers down scrolls up
     scroll_backend: str = "auto"  # auto | uinput | xtest

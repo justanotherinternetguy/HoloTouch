@@ -22,11 +22,12 @@ whole screen, so the hand never has to reach the edge of the picture.
 | Point, then tap the thumb down | Left mouse button | Point up with the index finger, thumb held out, to take aim: sights appear round the cursor. Tap the thumb down onto the middle finger to click, twice to double click. Keep it down and move to drag. |
 | Thumb + pinky pinch | Pie menu | A ring of items opens at the hand. Move toward one and let go to pick it. |
 | Fist, held still over a window | Close the window | A ring fills for about 0.7 s; moving or opening the hand cancels it. |
-| Two fingers up | Scroll | Tilt the two fingers down or back. The further the tilt, the faster the scroll. |
+| Two fingers up | Scroll | Let the two fingers rest leaning toward the screen. Tip them at the screen to scroll down, straighten them up to scroll up: the further, the faster. |
 | Claw, turned like a knob | Volume or brightness | Right hand turns the volume, left hand the screen brightness. |
-| Open palm, swept sideways | Switch workspace | A fast sweep to the left or right. |
+| Open palm, swept to the right | Enter key | A fast sweep to the right presses Enter in whatever has the keyboard. |
 | Fist touched to the chin | Window switcher | Every window is laid out as a card with a picture of it. Point at one and pinch to go to it. |
 | Letter Y: thumb and pinky out, the rest folded | Dictate | Hold the sign up and speak; a note says it is listening. Let go, and what you said is typed into whatever has the keyboard. |
+| Both hands clapped twice | New tab | Only when a web browser has the keyboard: it is sent Ctrl+T. The claps are seen, not heard. |
 | Peace sign with both hands | Camera | Held for 3 s, it opens the camera app and takes a photo. Tracking pauses until the app is closed, since only one program can use the webcam. |
 
 The pie menu starts apps (terminal, browser, files), skips music tracks, lists the running windows,
@@ -75,6 +76,10 @@ finger. Hand-written rules turn these into one of ten poses: neutral, open, inde
 pinch, fist, two fingers, claw, aim (pointing with the thumb held out), press (the thumb
 brought down from there) and the letter Y. Each pose has separate thresholds for entering and leaving, and must
 persist for a short time before it counts, so a pose does not flicker.
+
+**Claps** (`claps.py`). A clap is the two palms 14 cm apart or more and then together, within a
+third of a second. Hands that meet are often read as one hand or as none, so palms that vanish on
+their way together count as having met. Two claps within 0.9 s are acted on.
 
 **Face** (`face.py`). The face mesh gives the chin's position and the face's size, which tell how
 near the chin a hand is, and whether it is level with the face or held out in front of it.
@@ -140,7 +145,7 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
 - a ring for closing a window, as wide as the fist may drift, and one for the camera sign
 - the volume or brightness dial, with its number; a click pulse; a bar at the screen edge that
   fills while a held window waits to cross to the next workspace
-- brief notes for the workspace switched to and the track skipped, and one that says the
+- brief notes for the workspace switched to, the track skipped, the Enter key pressed and the tab opened, and one that says the
   microphone is listening, then that what was said is being written
 - one instruction at a time, for a prompted recording or for practice mode
 - an optional diagnostics panel showing frame rate, latency, each hand's pose and measurements,
@@ -231,5 +236,5 @@ Cheese (the camera gesture), and `parecord`, `xdotool` and Handy (dictation). `h
 | `src/holowm/panel/` | The control panel |
 | `src/holowm/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holowm/tools/` | `doctor`, `collect`, `score` and `train` |
-| `tests/` | 290 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 313 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan |
