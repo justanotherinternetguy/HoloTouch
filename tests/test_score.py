@@ -17,21 +17,24 @@ AT = (1400, 900)
 SHOWN = {
     "open": ("open", 0), "relaxed": ("point", 0), "pinch": ("pinch_index", 0), "pinky_pinch": ("pinch_pinky", 0),
     "fist": ("fist", 0), "two_up": ("two_finger", 0), "two_down": ("two_finger", 100), "two_back": ("two_finger", -25),
+    "aim": ("aim", 0), "aim_press": ("press", 0),
 }  # fmt: skip
+# The prompts that carry straight on from the one before, and the pose the hand is still in as they appear.
+FOLLOWS = {"two_down": "two_finger", "two_back": "two_finger", "aim_press": "aim"}
 
 
 def session(steps, shown=SHOWN, person="ada", react=0.3) -> Session:
     """A recording in which each prompted pose is made `react` seconds into its hold, with an open hand between."""
     cfg, frames, t, holds = Config(), [], 20.0, []
     for label in steps:
-        t += 1.5 if label not in ("two_down", "two_back") else 0.0
+        t += 1.5 if label not in FOLLOWS else 0.0
         holds.append({"label": label, "start": t, "end": t + 3.0})
         t += 3.0
     for seq in range(round((t + 1.0 - 19.0) * 30)):
         now = 19.0 + seq / 30.0
         hold = next((h for h in holds if h["start"] + react <= now < h["end"] + react), None)
-        follows = next((h for h in holds if h["label"] in ("two_down", "two_back") and h["start"] <= now < h["start"] + react), None)
-        pose, tilt = shown[hold["label"]] if hold else ("two_finger", 0) if follows else ("open", 0)
+        follows = next((h for h in holds if h["label"] in FOLLOWS and h["start"] <= now < h["start"] + react), None)
+        pose, tilt = shown[hold["label"]] if hold else (FOLLOWS[follows["label"]], 0) if follows else ("open", 0)
         frames.append(FrameSample(seq, now, now + 0.02, [make_hand(cfg, SCREEN, pose, *AT, "Right", tilt)]))
     return Session("made-up", person, frames, holds)
 
@@ -48,6 +51,16 @@ def test_a_hand_that_does_as_asked_scores_full_marks():
     assert report.people == {"ada": [sum(sum(c.values()) for c in report.poses.values())] * 2}
     text = format_report(report)
     assert "Poses read right: 100% of" in text and "Right gesture, or rightly none: 9 of 9 holds." in text
+
+
+def test_the_thumb_coming_down_on_a_hand_taking_aim_is_scored_as_a_click():
+    report = score([session(["aim", "aim_press", "relaxed"])], Config())
+    assert report.right("aim") == 1.0 and report.right("aim_press") == 1.0
+    assert report.ran == report.holds and not report.strays  # taking aim runs nothing by itself
+    assert report.kept["aim_press"] == pytest.approx(1.0)
+    # With no aim taken before it, the same hand is only pointing, and that shows as a click that never ran.
+    report = score([session(["open", "aim_press"])], Config())
+    assert report.ran["aim_press"] == 0 and report.right("aim_press") == 0.0
 
 
 def test_misreadings_show_up_against_the_pose_that_was_asked_for():

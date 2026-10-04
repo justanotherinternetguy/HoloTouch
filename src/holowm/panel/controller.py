@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import re
 import signal
@@ -31,6 +32,131 @@ _START_S = 20.0  # how long HoloWM has to come up before the start is given up
 _QUIT_S = 3.0  # how long it has to go once asked to, before it is made to
 _LOG_LINES = 300
 _CHECK = re.compile(r"\[(ok  |warn|FAIL)\] (.*)")
+_BLIND_S = 5.0  # how long a running HoloWM may deliver no frames before the camera is said to be missing
+_PRACTICE_POLL_MS = 150  # practice mode watches for gestures, some of them brief
+
+# What each of the doctor's checks is called when it is fine, what it is called when it is not,
+# and what to do about that. Keyed on the doctor's own label, or on how the label starts.
+_CHECKS = {
+    "X11 session": (
+        "X11 desktop session",
+        "This isn't an X11 session",
+        "HoloWM needs one. Log out and pick an Xorg session at the login screen.",
+    ),
+    "X server connection": (
+        "X server answers",
+        "The X server can't be reached",
+        "HoloWM needs a running X11 session to draw on.",
+    ),
+    "window manager supports the needed EWMH requests": (
+        "Window manager works with HoloWM",
+        "This window manager can't do what HoloWM asks",
+        "HoloWM is built for xfwm4, the XFCE window manager. The requests it lacks are listed below.",
+    ),
+    "X extension": (
+        "",
+        "An X extension is missing",
+        "HoloWM cannot run without it. It comes with any ordinary Xorg server.",
+    ),
+    "compositor running": (
+        "Overlay can be see-through",
+        "The overlay would hide your screen",
+        "Compositing is off. Turn it on in Window Manager Tweaks, under Compositor.",
+    ),
+    "desktop background window": (
+        "Desktop background is in place",
+        "Moved windows will leave trails",
+        "The desktop's own window is minimized. The line below gives the command that restores it.",
+    ),
+    "camera access": (
+        "Camera can be opened",
+        "HoloWM isn't allowed to use the camera",
+        "Give your user access to the device, usually by joining the video group, then log in again.",
+    ),
+    "camera mode": (
+        "Camera offers the size asked for",
+        "The camera doesn't list the size HoloWM asks for",
+        "HoloWM will take what it is given. To choose a size the camera has, set width and height under [camera].",
+    ),
+    "camera app for the two-handed peace sign": (
+        "Camera app for the peace sign",
+        "The peace sign has nothing to open",
+        "Install a camera app such as Snapshot or Cheese, or name one as camera_command under [gesture].",
+    ),
+    "dictation for the letter Y": (
+        "Dictation for the letter Y",
+        "The letter Y can't dictate yet",
+        "It needs a recorder (parecord or arecord), xdotool to type, and Handy to turn speech into text, "
+        "or another program named as dictate_command under [gesture].",
+    ),
+    "camera": (
+        "Camera can be opened",
+        "No camera found",
+        "Plug a camera in, or set the device under [camera] in config.toml.",
+    ),
+    "hand tracking": (
+        "Hand tracking is fast enough",
+        "Tracking is too slow to feel right",
+        "Close heavy programs, plug the laptop in, or lower the camera size under [camera].",
+    ),
+    "face tracking": (
+        "Face is seen, for the chin gesture",
+        "The window switcher won't open",
+        "No face was seen, so a fist at the chin does nothing. Sit so the camera can see your face.",
+    ),
+    "smooth scrolling via /dev/uinput": (
+        "Smooth scrolling",
+        "Scrolling will move in steps",
+        "HoloWM can't write to /dev/uinput. Give your user write access to it for scrolling that glides.",
+    ),
+    "skipping tracks via playerctl": (
+        "Music controls",
+        "Music controls won't work yet",
+        "The pie menu's Music petals need playerctl. Install it with your package manager.",
+    ),
+    "hand model": (
+        "Hand model is downloaded",
+        "The hand model will download on first start",
+        "Nothing to do. The first start takes a little longer and needs the internet.",
+    ),
+    "face model": (
+        "Face model is downloaded",
+        "The face model will download on first start",
+        "Nothing to do. The first start takes a little longer and needs the internet.",
+    ),
+}
+
+# Practice mode: one thing to try at a time, on the two stand-in windows.
+COACH = (
+    {
+        "name": "Grab",
+        "title": "Grab a window",
+        "body": "Hold a hand up, then touch your thumb to your index finger over one of the stand-in windows.",
+        "praise": "Got it. You're holding the window.",
+        "demo": "grab",
+    },
+    {
+        "name": "Move",
+        "title": "Carry it somewhere",
+        "body": "Keep your fingers together and move your hand. Open them to let go.",
+        "praise": "Moved it. That's how you carry any window.",
+        "demo": "move",
+    },
+    {
+        "name": "Resize",
+        "title": "Resize it with both hands",
+        "body": "Take hold of a stand-in window. Pinch with your other hand as well, then pull your hands apart.",
+        "praise": "Resized. Either hand can let go first.",
+        "demo": "resize",
+    },
+    {
+        "name": "Pie menu",
+        "title": "Open the pie menu",
+        "body": "Touch your thumb to your little finger and hold. Move toward a petal, then let go to pick it.",
+        "praise": "That's the menu. You're ready.",
+        "demo": "menu",
+    },
+)
 
 
 def holowm_command(config: Path | None, *args: str) -> list[str]:
@@ -50,6 +176,17 @@ def parse_check(line: str) -> dict | None:
     return {"mark": match[1].strip().lower(), "label": label, "detail": detail}
 
 
+def describe_check(check: dict) -> dict:
+    """A check as the panel words it: a plain title, and for one that is not fine, what to do."""
+    label, fine = check["label"], check["mark"] == "ok"
+    known = _CHECKS.get(label) or next((said for start, said in _CHECKS.items() if label.startswith(start)), None)
+    raw = f"[{check['mark']}] {label}" + (f": {check['detail']}" if check["detail"] else "")
+    if known is None:
+        return {**check, "title": label[:1].upper() + label[1:], "fix": "" if fine else check["detail"], "raw": raw}
+    good, bad, fix = known
+    return {**check, "title": (good or label) if fine else bad, "fix": "" if fine else fix, "raw": raw}
+
+
 class Controller(QObject):
     changed = Signal()
     logChanged = Signal()
@@ -62,6 +199,7 @@ class Controller(QObject):
         scale: float | None = None,
         error: str = "",
         parent: QObject | None = None,
+        state_path: Path | None = None,
     ):
         super().__init__(parent)
         self._cfg = cfg
@@ -83,6 +221,20 @@ class Controller(QObject):
         self._doctor: QProcess | None = None
         self._doctor_output = ""  # what the doctor has printed of a line not yet finished
         self._doctor_said = ""  # the last line it printed
+        self._blind_since: float | None = None  # since when a running HoloWM has delivered no frames
+        self._then: bool | None = None  # once stopped, start again: in practice mode, or not
+        self._step = 0  # the practice step being tried; len(COACH) once all are done
+        self._praise = ""  # what is said of the step just done
+        self._seen: dict = {}  # what the current step has noticed so far
+        self._told = -1  # the step the overlay was last asked to show
+        # What the panel remembers from one opening to the next. Without a path, nothing is kept.
+        self._state_path = state_path
+        self._kept = {"closeNoteSeen": False, "drawerOpen": False}
+        if state_path is not None:
+            try:
+                self._kept.update({k: bool(v) for k, v in json.loads(state_path.read_text()).items() if k in self._kept})
+            except (OSError, ValueError, AttributeError):
+                pass
         self._timer = QTimer(self)
         self._timer.timeout.connect(self.poll)
 
@@ -97,13 +249,9 @@ class Controller(QObject):
     def scale(self) -> float:
         return self._scale
 
-    @Property(str, constant=True)
-    def accent(self) -> str:
-        return self._cfg.ui.accent
-
-    @Property(str, constant=True)
-    def danger(self) -> str:
-        return self._cfg.ui.danger
+    @Property("QVariantList", constant=True)
+    def coach(self) -> list:
+        return list(COACH)
 
     @Property(str, constant=True)
     def version(self) -> str:
@@ -153,9 +301,34 @@ class Controller(QObject):
     def log(self) -> str:
         return "\n".join(self._log_lines)
 
+    @Property(str, notify=changed)
+    def camera(self) -> str:
+        """How the webcam is doing for a HoloWM that is tracking: "ok", "waiting" or "missing"."""
+        if self._state != "running" or self._blind_since is None:
+            return "ok"
+        if self._info.get("error") or time.monotonic() - self._blind_since >= _BLIND_S:
+            return "missing"
+        return "waiting"
+
+    @Property(int, notify=changed)
+    def coachStep(self) -> int:
+        return self._step
+
+    @Property(str, notify=changed)
+    def coachPraise(self) -> str:
+        return self._praise
+
+    @Property(bool, notify=changed)
+    def closeNoteSeen(self) -> bool:
+        return self._kept["closeNoteSeen"]
+
+    @Property(bool, notify=changed)
+    def drawerOpen(self) -> bool:
+        return self._kept["drawerOpen"]
+
     @Property("QVariantList", notify=checksChanged)
     def checks(self) -> list:
-        return self._checks
+        return [describe_check(check) for check in self._checks]
 
     @Property(bool, notify=checksChanged)
     def checking(self) -> bool:
@@ -222,6 +395,126 @@ class Controller(QObject):
         self._practice = on
         self.changed.emit()
 
+    @Slot()
+    def startPractice(self) -> None:
+        self._begin(True)
+
+    @Slot()
+    def startForReal(self) -> None:
+        self._begin(False)
+
+    @Slot()
+    def restart(self) -> None:
+        """Stop HoloWM and start it again the same way, as when the camera has come back."""
+        if self._up:
+            self._then = self.practice
+            self.stop()
+
+    @Slot()
+    def copyLog(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+
+        QGuiApplication.clipboard().setText(self.log)
+
+    def _begin(self, practice: bool) -> None:
+        """Start HoloWM on stand-in windows or on real ones, stopping the other kind first if it is up."""
+        if self._state == "stopped":
+            self._practice = practice
+            self.start()
+        elif self._up and self.practice != practice:
+            self._then = practice
+            self.stop()
+
+    # -- what the panel remembers ------------------------------------------------------------
+
+    def _keep(self, key: str, value: bool) -> None:
+        if self._kept[key] == value:
+            return
+        self._kept[key] = value
+        if self._state_path is not None:
+            try:
+                self._state_path.parent.mkdir(parents=True, exist_ok=True)
+                self._state_path.write_text(json.dumps(self._kept))
+            except OSError as exc:
+                log.warning("could not save the panel's state: %s", exc)
+        self.changed.emit()
+
+    @Slot()
+    def dismissCloseNote(self) -> None:
+        self._keep("closeNoteSeen", True)
+
+    @Slot(bool)
+    def setDrawerOpen(self, on: bool) -> None:
+        self._keep("drawerOpen", on)
+
+    # -- practice ----------------------------------------------------------------------------
+
+    @Slot()
+    def coachSkip(self) -> None:
+        if self._step < len(COACH):
+            self._advance("")
+
+    @Slot()
+    def coachRestart(self) -> None:
+        self._step, self._praise, self._seen = 0, "", {}
+        self._tell()
+        self.changed.emit()
+
+    def _advance(self, praise: str) -> None:
+        self._step, self._praise, self._seen = self._step + 1, praise, {}
+        self._tell()
+
+    def _tell(self) -> None:
+        """Have the overlay show the step being tried beside the stand-in windows, or nothing."""
+        practising = self._up and self.practice
+        step = self._step if practising and self._step < len(COACH) else -1
+        if step == self._told or not self._up:
+            return
+        self._told = step
+        if step < 0:
+            self._ask("say", lambda reply: None)
+            return
+        said = {
+            "caption": f"Practice · step {step + 1} of {len(COACH)}",
+            "text": COACH[step]["title"],
+            "detail": COACH[step]["body"],
+            "progress": step / len(COACH),
+        }
+        self._ask("say " + json.dumps(said), lambda reply: None)
+
+    def _watch_practice(self, info: dict) -> None:
+        """Notice the step being tried getting done, from what a practising HoloWM says of itself."""
+        if self._step >= len(COACH) or info.get("paused"):
+            return
+        gesture, frame = info.get("gesture", ""), info.get("frame") or []
+        mode = frame[0] if frame else ""
+        held = gesture == "move" and mode in ("grab", "resize")
+        seen = self._seen
+        if self._step == 0:
+            if held:
+                self._advance(COACH[0]["praise"])
+        elif self._step == 1:
+            # Carried a good way across the screen, and then let go of.
+            if held:
+                x0, y0 = seen.setdefault("from", (frame[1], frame[2]))
+                width = (info.get("screen") or [0])[0] or 1920
+                seen["far"] = seen.get("far", False) or math.hypot(frame[1] - x0, frame[2] - y0) >= 0.15 * width
+            elif seen.pop("far", False):
+                self._advance(COACH[1]["praise"])
+            else:
+                seen.clear()
+        elif self._step == 2:
+            if mode == "resize":
+                w0 = seen.setdefault("width", frame[3])
+                if abs(frame[3] - w0) >= 0.2 * max(w0, 1):
+                    self._advance(COACH[2]["praise"])
+            else:
+                seen.clear()
+        elif gesture == "menu":
+            seen["open"] = True
+        elif seen.get("open"):
+            self._advance(COACH[3]["praise"])
+
     # -- following HoloWM --------------------------------------------------------------------
 
     def _ask(self, command: str, on_reply) -> None:
@@ -267,24 +560,42 @@ class Controller(QObject):
 
     def on_info(self, info: dict | None) -> None:
         """Take in what HoloWM said of itself. None: nothing answered."""
-        before = (self._state, self._info, self._error)
+        before = (self._state, self._info, self._error, self.camera, self._step)
         if info is not None:
             if not self._up and info.get("log"):
                 self._follow_log(Path(info["log"]))
+            was_up = self._up
             self._info = info
             if self._state != "stopping":
                 if self._state == "stopped":
                     self._error = ""  # one that was started elsewhere, whatever went wrong here before
                 self._state = "paused" if info.get("paused") else "running"
+            # A HoloWM that is tracking but getting no frames has lost its camera, or never had it.
+            blind = self._state == "running" and (bool(info.get("error")) or not info.get("fps"))
+            self._blind_since = (self._blind_since or time.monotonic()) if blind else None
+            if self._up and info.get("practice"):
+                if not was_up:
+                    self._step, self._praise, self._seen, self._told = 0, "", {}, -1  # a fresh practice
+                self._watch_practice(info)
+            self._tell()
         elif self._state != "stopped" and not self._alive():
             code = self._proc.returncode if self._proc is not None else None
             if self._state == "starting":
-                self._error = "HoloWM could not start. The Log tab says why."
+                self._error = "HoloWM could not start. The log below says why."
             elif self._up and code not in (None, 0):
-                self._error = "HoloWM stopped unexpectedly. The Log tab may say why."
+                self._error = "HoloWM stopped unexpectedly. The log below may say why."
             self._state, self._info, self._proc = "stopped", {}, None
+            self._blind_since, self._told = None, -1
             self._read_log()  # its last words
-        if (self._state, self._info, self._error) != before:
+            if self._then is not None:
+                # It was only stopped to be started again the other way.
+                self._practice, self._then = self._then, None
+                self.start()
+        # Practice mode watches for gestures, some of them over in a moment.
+        interval = _PRACTICE_POLL_MS if self._up and self.practice else _POLL_MS
+        if self._timer.isActive() and self._timer.interval() != interval:
+            self._timer.setInterval(interval)
+        if (self._state, self._info, self._error, self.camera, self._step) != before:
             self.changed.emit()
 
     def _pid(self) -> int | None:

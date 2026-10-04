@@ -31,7 +31,7 @@ EXPECTED: dict[str, tuple[set[str] | None, str | None]] = {
     "relaxed": ({"neutral", "open"}, None),
     "pinch": ({"pinch_index"}, "move"),
     "pinch_side": ({"pinch_index"}, "move"),
-    "middle_pinch": ({"pinch_middle"}, "click"),
+    "middle_pinch": ({"neutral", "open"}, None),  # this was the click once; it is no gesture now
     "pinky_pinch": ({"pinch_pinky"}, "menu"),
     "fist": ({"fist"}, "close"),
     "two_up": ({"two_finger"}, "scroll"),
@@ -39,13 +39,16 @@ EXPECTED: dict[str, tuple[set[str] | None, str | None]] = {
     "two_back": ({"two_finger"}, "scroll"),
     "claw": ({"claw"}, "knob"),
     "claw_turn": ({"claw"}, "knob"),
-    "point": ({"neutral", "open"}, None),
+    "aim": ({"aim"}, None),
+    "aim_press": ({"press"}, "click"),
+    "y_sign": ({"y_sign"}, "dictate"),
+    "point": ({"neutral", "open"}, None),  # the thumb tucked in from the start: only pointing
     "other": ({"neutral", "open"}, None),
     "chin": (None, "switcher"),  # read from the face and the hand together, not from a pose
 }
-POSES = ["open", "neutral", "pinch_index", "pinch_middle", "pinch_pinky", "fist", "two_finger", "claw", "no hand"]
-_SHORT = {"pinch_index": "pinch", "pinch_middle": "middle", "pinch_pinky": "pinky", "two_finger": "two", "no hand": "none"}
-_CARRIES_ON = {"two_down", "two_back", "claw_turn"}  # these are asked for as a continuation of the pose before them
+POSES = ["open", "neutral", "pinch_index", "pinch_pinky", "fist", "two_finger", "claw", "aim", "press", "y_sign", "no hand"]
+_SHORT = {"pinch_index": "pinch", "pinch_pinky": "pinky", "two_finger": "two", "y_sign": "y", "no hand": "none"}
+_CARRIES_ON = {"two_down", "two_back", "claw_turn", "aim_press"}  # these are asked for as a continuation of the pose before them
 
 
 @dataclass

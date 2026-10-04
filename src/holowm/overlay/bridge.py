@@ -16,13 +16,16 @@ from holowm.overlay.images import WindowImages
 
 _HIDDEN_HAND = {
     "visible": False, "x": 0.0, "y": 0.0, "pinch": 0.0, "pose": "neutral", "active": False, "armed": False,
-    "scroll": 0.0,
+    "scroll": 0.0, "side": "right", "lost": False,
 }  # fmt: skip
-_HIDDEN_FRAME = {"visible": False, "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0, "mode": "hover", "label": ""}
+_HIDDEN_FRAME = {
+    "visible": False, "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0, "mode": "hover", "label": "", "side": "",
+    "ghost": [], "lost": False,
+}  # fmt: skip
 _CLOSED_MENU = {"open": False, "cx": 0.0, "cy": 0.0, "label": "", "hover": -2, "back": None, "trail": []}
 _CLOSED_SWITCHER = {
     "open": False, "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0, "u": 1.0, "cardW": 0.0, "cardH": 0.0,
-    "inset": 0.0, "titleH": 0.0, "badge": 0.0, "largeIcon": 0.0, "selected": -1, "label": "",
+    "inset": 0.0, "titleH": 0.0, "badge": 0.0, "largeIcon": 0.0, "selected": -1, "label": "", "side": "",
 }  # fmt: skip
 # Switcher card layout, in pixels before the ui scale: the margin around the picture, the strip
 # kept for the title, and the icon size beside a snapshot and in place of one.
@@ -32,6 +35,18 @@ _CARD_BADGE = 44.0
 _CARD_ICON = 88.0
 # Pictures are made slightly larger than shown, so the enlarged selected card stays sharp.
 _PICTURE_SCALE = 1.1
+
+
+def _kind(item: dict) -> str:
+    """What a menu item does, which decides the colour of its petal."""
+    kind = item.get("type", "")
+    if item.get("menu") or kind == "workspace":
+        return "more"
+    if kind == "window_action" and item.get("data") == "close":
+        return "close"
+    if kind in ("window_action", "send_to_workspace", "activate_window"):
+        return "window"
+    return "launch"
 
 
 def _has_icon(name: str) -> bool:
@@ -75,18 +90,15 @@ class Bridge(QObject):
     def scale(self) -> float:
         return self._cfg.ui.scale
 
-    @Property(str, constant=True)
-    def accent(self) -> str:
-        return self._cfg.ui.accent
-
-    @Property(str, constant=True)
-    def danger(self) -> str:
-        return self._cfg.ui.danger
-
     @Property("QVariantMap", constant=True)
     def pie(self) -> dict:
         p = self._cfg.pie
         return {"deadZone": p.dead_zone, "childOffset": p.child_offset, "childSize": p.child_size, "centerSize": p.center_size}
+
+    @Property(float, constant=True)
+    def closeRadius(self) -> float:
+        """How far a closing fist may drift, as a fraction of the screen's height."""
+        return self._cfg.gesture.close_radius
 
     # -- live state --------------------------------------------------------------------------
 
@@ -133,8 +145,12 @@ class Bridge(QObject):
     def apply(self, state: OverlayState, debug: dict | None = None, prompt: dict | None = None) -> None:
         live = {h.id for h in state.hands}
         self._slots = {i: s for i, s in self._slots.items() if i in live}
-        # A hand that disappears keeps its last position so its cursor fades out in place.
-        hands = [{**h, "visible": False, "active": False, "scroll": 0.0} for h in self._hands]
+        # A hand that disappears keeps its last position so its cursor fades out in place. One that
+        # was driving a gesture when it went is marked lost, so the overlay can say so.
+        hands = [
+            {**h, "visible": False, "active": False, "scroll": 0.0, "lost": h["active"] if h["visible"] else h["lost"]}
+            for h in self._hands
+        ]
         for hand in state.hands:
             slot = self._slots.get(hand.id)
             if slot is None:
@@ -145,17 +161,27 @@ class Bridge(QObject):
             hands[slot] = {
                 "visible": True, "x": hand.x, "y": hand.y, "pinch": hand.pinch,
                 "pose": hand.pose, "active": hand.active, "armed": hand.armed, "scroll": hand.scroll,
+                "side": hand.side, "lost": False,
             }  # fmt: skip
+        holder_lost = any(h["lost"] and was["visible"] for h, was in zip(hands, self._hands))
         if hands != self._hands:
             self._hands = hands
             self.handsChanged.emit()
 
         f = state.frame
-        frame = (
-            {"visible": True, "x": f.x, "y": f.y, "w": f.w, "h": f.h, "mode": f.mode, "label": f.label}
-            if f is not None
-            else {**self._frame, "visible": False}
-        )
+        if f is not None:
+            frame = {
+                "visible": True, "x": f.x, "y": f.y, "w": f.w, "h": f.h, "mode": f.mode, "label": f.label,
+                "side": f.side, "ghost": list(f.ghost) if f.ghost is not None else [], "lost": False,
+            }  # fmt: skip
+        else:
+            # The last outline is kept while it fades. If the hand holding the window vanished, it
+            # fades as an outline that was let down, not one that was let go of.
+            if self._frame["visible"]:
+                lost = holder_lost and self._frame["mode"] in ("grab", "resize")
+            else:
+                lost = self._frame["lost"]
+            frame = {**self._frame, "visible": False, "lost": lost}
         if frame != self._frame:
             self._frame = frame
             self.frameChanged.emit()
@@ -184,6 +210,7 @@ class Bridge(QObject):
         return {
             "edgeSide": state.edge_side,
             "edgeProgress": state.edge_progress,
+            "edgeTarget": state.edge_target,
             "closeProgress": state.close_progress,
             "closeX": state.close_x,
             "closeY": state.close_y,
@@ -202,6 +229,7 @@ class Bridge(QObject):
             "clickX": state.click_x,
             "clickY": state.click_y,
             "track": state.track,
+            "dictation": state.dictation,
             "paused": state.paused,
         }
 
@@ -216,7 +244,10 @@ class Bridge(QObject):
         if key != self._menu_key:
             self._menu_key = key
             self._menu_items = [
-                {"name": i["name"], "icon": i["icon"], "hasIcon": _has_icon(i["icon"]), "x": i["x"], "y": i["y"], "menu": i["menu"]}
+                {
+                    "name": i["name"], "icon": i["icon"], "hasIcon": _has_icon(i["icon"]), "x": i["x"], "y": i["y"],
+                    "menu": i["menu"], "kind": _kind(i), "count": i.get("count", 0),
+                }  # fmt: skip
                 for i in view["items"]
             ]
             self.menuItemsChanged.emit()
@@ -277,6 +308,7 @@ class Bridge(QObject):
             "open": True, "x": view["x"], "y": view["y"], "w": view["w"], "h": view["h"], "u": u,
             "cardW": view["card_w"], "cardH": view["card_h"], "inset": _CARD_INSET * u, "titleH": _CARD_TITLE * u,
             "badge": _CARD_BADGE * u, "largeIcon": _CARD_ICON * u, "selected": view["selected"], "label": view["label"],
+            "side": view.get("side", ""),
         }  # fmt: skip
         if switcher != self._switcher:
             self._switcher = switcher

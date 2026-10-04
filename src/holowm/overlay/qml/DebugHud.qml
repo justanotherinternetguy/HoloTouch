@@ -5,7 +5,6 @@ Item {
     id: root
     property var info
     property real s: 1
-    property color accent
     visible: !!info.visible
     x: 24 * s
     y: 60 * s
@@ -18,9 +17,9 @@ Item {
     Rectangle {
         width: 420 * root.s
         height: column.height + 24 * root.s
-        radius: 8 * root.s
-        color: "#cc040c12"
-        border.color: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.4)
+        radius: 18 * root.s
+        color: theme.chip
+        border.color: theme.keyline
         border.width: 1.5 * root.s
 
         Column {
@@ -30,8 +29,8 @@ Item {
             spacing: 8 * root.s
             Text {
                 text: root.info.text || ""
-                color: "#d8f6ff"
-                font.family: "monospace"
+                color: theme.cream
+                font.family: theme.mono
                 font.pixelSize: 13 * root.s
             }
             Canvas {
@@ -41,19 +40,19 @@ Item {
                 onPaint: {
                     var ctx = getContext("2d")
                     ctx.clearRect(0, 0, width, height)
-                    ctx.strokeStyle = "#335a6a"
+                    ctx.strokeStyle = theme.inkSoft
                     ctx.lineWidth = 1
                     ctx.strokeRect(0.5, 0.5, width - 1, height - 1)
                     var box = root.info.box
                     if (box) {
-                        ctx.strokeStyle = String(root.accent)
+                        ctx.strokeStyle = theme.butter
                         ctx.setLineDash([6, 4])
                         ctx.strokeRect(box[0] * width, box[1] * height, box[2] * width, box[3] * height)
                         ctx.setLineDash([])
                     }
                     var face = root.info.face || []
                     if (face.length) {
-                        ctx.strokeStyle = "#6f9aa8"
+                        ctx.strokeStyle = theme.lilac
                         ctx.lineWidth = 1
                         ctx.beginPath()
                         for (var f = 0; f <= face.length; f++) {
@@ -66,7 +65,7 @@ Item {
                         ctx.stroke()
                         // The circle a fist has to reach into to touch the chin.
                         var chin = root.info.chin
-                        ctx.strokeStyle = String(root.accent)
+                        ctx.strokeStyle = theme.mint
                         ctx.beginPath()
                         ctx.arc(chin[0] * width, chin[1] * height, chin[2] * height, 0, 2 * Math.PI)
                         ctx.stroke()
@@ -74,7 +73,7 @@ Item {
                     var hands = root.info.hands || []
                     for (var h = 0; h < hands.length; h++) {
                         var points = hands[h]
-                        ctx.strokeStyle = "#e8fbff"
+                        ctx.strokeStyle = theme.cream
                         ctx.lineWidth = 1.5
                         ctx.beginPath()
                         for (var b = 0; b < root.bones.length; b++) {

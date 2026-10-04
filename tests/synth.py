@@ -24,11 +24,13 @@ _POSES = {
     "open": ((0, 0, 0, 0), (-0.07, -0.04, -0.02)),
     "neutral": ((0.35, 0.35, 0.35, 0.35), (-0.07, -0.02, -0.02)),
     "pinch_index": ((0.45, 0, 0, 0), 0),
-    "pinch_middle": ((0, 0.45, 0, 0), 1),
     "pinch_pinky": ((0, 0, 0, 0.45), 3),
     "fist": ((1, 1, 1, 1), (-0.02, -0.03, -0.04)),
     "two_finger": ((0, 0, 1, 1), (0.0, -0.02, -0.035)),
-    "point": ((0, 1, 1, 1), (-0.07, -0.02, -0.02)),  # index only: no pose of its own, so neutral
+    "point": ((0, 1, 1, 1), 1),  # index only, the thumb tucked onto the middle finger: neutral
+    "aim": ((0, 1, 1, 1), (-0.07, -0.02, -0.02)),  # index only, the thumb held out
+    "y_sign": ((1, 1, 1, 0), (-0.07, -0.02, -0.02)),  # the letter Y: thumb and pinky out, the rest folded
+    "press": ((0, 1, 1, 1), 1),  # a point again, which is a press when the hand was taking aim
     "claw": ((0.55, 0.55, 0.55, 0.55), (-0.07, -0.02, -0.02)),  # every finger bent, as if round a knob
     # How a fist pressed to the face tends to be read: fingers half hidden, thumb against the index.
     "loose_fist": ((0.66, 0.66, 0.66, 0.66), 0),

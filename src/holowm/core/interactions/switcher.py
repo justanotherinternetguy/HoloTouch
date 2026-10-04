@@ -179,6 +179,8 @@ class SwitcherInteraction(Interaction):
             "card_h": grid.card_h,
             "selected": -1 if self.selected is None else self.selected,
             "label": _title(chosen) if chosen is not None else "",
+            # The hand that is pointing, for the colour of the highlight.
+            "side": self.engine.side(self.engine.tracker.get(self._pointer)) if self._pointer is not None else "",
             "items": [
                 {
                     "id": win.id,

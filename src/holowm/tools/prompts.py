@@ -25,19 +25,24 @@ class Step:
 
 
 # One round. Each inner list is done in one go: a pose, then what follows on from it. The tilts
-# follow "two fingers up" because that is the only way a hand ever gets into them.
+# follow "two fingers up" because that is the only way a hand ever gets into them, and the thumb
+# comes down to press from a hand that is taking aim.
 SCRIPT = [
     [Step("open", "Open hand, palm to the camera")],
     [Step("relaxed", "Relax your hand")],
     [Step("pinch", "Pinch thumb and index")],
     [Step("pinch_side", "Turn your hand side-on, then pinch thumb and index")],
-    [Step("middle_pinch", "Touch thumb to middle finger, palm to the camera")],
+    [
+        Step("aim", "Point up with one finger, thumb out to the side"),
+        Step("aim_press", "Now bring the thumb down onto your middle finger"),
+    ],
     [Step("pinky_pinch", "Touch thumb to pinky")],
     [Step("fist", "Make a fist")],
     [Step("two_up", "Two fingers up"), Step("two_down", "Now tip them steeply down")],
     [Step("two_up", "Two fingers up"), Step("two_back", "Now lean them back")],
     [Step("claw", "Make a claw, as if gripping a knob"), Step("claw_turn", "Now turn it, like a knob")],
-    [Step("point", "Point up with one finger")],
+    [Step("y_sign", "Thumb and pinky out, the other fingers folded: the letter Y")],
+    [Step("point", "Point up with one finger, thumb tucked in")],
     [Step("other", "Anything else: wave, scratch your head")],
     [Step("chin", "Rest your fist on your chin")],
 ]

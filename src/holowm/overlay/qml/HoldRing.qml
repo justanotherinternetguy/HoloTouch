@@ -1,53 +1,43 @@
 import QtQuick
-import QtQuick.Shapes
+import "../../ui"
 
 // Ring between two hands held in a sign, which completes when what it names is about to open.
 Item {
     id: root
     property var fx
     property real s: 1
-    property color accent
     readonly property real progress: fx.holdProgress
-    readonly property real r: 64 * s
 
     visible: progress > 0
-    x: fx.holdX - r
-    y: fx.holdY - r
-    width: 2 * r
-    height: 2 * r
+    x: fx.holdX
+    y: fx.holdY
 
-    Shape {
-        anchors.fill: parent
-        preferredRendererType: Shape.CurveRenderer
-        ShapePath {
-            strokeColor: Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.25)
-            strokeWidth: 7 * root.s
-            fillColor: "transparent"
-            PathAngleArc {
-                centerX: root.r; centerY: root.r
-                radiusX: root.r - 5 * root.s; radiusY: root.r - 5 * root.s
-                startAngle: 0
-                sweepAngle: 360
-            }
-        }
-        ShapePath {
-            strokeColor: root.accent
-            strokeWidth: 7 * root.s
-            fillColor: "transparent"
-            capStyle: ShapePath.RoundCap
-            PathAngleArc {
-                centerX: root.r; centerY: root.r
-                radiusX: root.r - 5 * root.s; radiusY: root.r - 5 * root.s
-                startAngle: -90
-                sweepAngle: 360 * root.progress
-            }
-        }
-    }
-    Text {
+    HoldArc {
         anchors.centerIn: parent
+        r: 58 * root.s
+        s: root.s
+        progress: root.progress
+    }
+    Rectangle {
+        anchors.centerIn: parent
+        width: 68 * root.s; height: width; radius: width / 2
+        color: theme.cream
+    }
+    Rectangle {
+        anchors.centerIn: parent
+        width: 64 * root.s; height: width; radius: width / 2
+        color: theme.ink
+    }
+    Icon {
+        anchors.centerIn: parent
+        name: "camera"
+        size: 34 * root.s
+        color: theme.cream
+    }
+    Chip {
+        s: root.s
         text: root.fx.holdName
-        color: root.accent
-        font.pixelSize: 18 * root.s
-        font.bold: true
+        x: -width / 2
+        y: 78 * root.s
     }
 }

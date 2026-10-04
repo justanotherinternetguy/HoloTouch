@@ -156,5 +156,8 @@ class FakeBackend:
     def press_key(self, key: str) -> None:
         self._record("press_key", key)
 
+    def type_text(self, text: str) -> None:
+        self._record("type_text", text)
+
     def skip_track(self, direction: int) -> None:
         self._record("skip_track", direction)

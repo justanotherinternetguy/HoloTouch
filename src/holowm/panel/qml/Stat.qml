@@ -1,40 +1,55 @@
 import QtQuick
 
-// One live figure and what it counts.
+// One live figure in a bubble, and what it counts.
 Rectangle {
     id: root
     property string value
     property string caption
+    property string tone: "steady"  // steady | active | empty | problem
     property real s: 1
-    property color accent
 
-    height: 58 * s
-    radius: 8 * s
-    color: Qt.rgba(accent.r, accent.g, accent.b, 0.05)
-    border.color: Qt.rgba(accent.r, accent.g, accent.b, 0.18)
-    border.width: 1
+    width: 76 * s
+    height: width
+    radius: width / 2
+    color: tone === "active" ? theme.butter : tone === "problem" ? theme.coralTint : tone === "empty" ? "transparent" : theme.paper
+    border.color: tone === "active" || tone === "problem" ? theme.ink : tone === "empty" ? "transparent" : theme.line
+    border.width: 1.5 * s
 
+    // Nothing to show: a dashed rim.
+    Canvas {
+        anchors.fill: parent
+        visible: root.tone === "empty"
+        onPaint: {
+            var ctx = getContext("2d")
+            ctx.clearRect(0, 0, width, height)
+            ctx.strokeStyle = theme.muted
+            ctx.lineWidth = 1.5 * root.s
+            ctx.setLineDash([4, 3])
+            ctx.beginPath()
+            ctx.arc(width / 2, height / 2, width / 2 - root.s, 0, 2 * Math.PI)
+            ctx.stroke()
+        }
+    }
     Column {
         anchors.centerIn: parent
-        spacing: 2 * root.s
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             width: root.width - 12 * root.s
             horizontalAlignment: Text.AlignHCenter
             text: root.value
-            color: "#e8fbff"
-            font.pixelSize: 20 * root.s
+            color: root.tone === "empty" ? theme.inkSoft : theme.ink
+            font.family: theme.display
+            font.pixelSize: (root.value.length > 3 ? 18 : 23) * root.s
             font.weight: Font.DemiBold
             fontSizeMode: Text.HorizontalFit
-            minimumPixelSize: 11 * root.s
+            minimumPixelSize: 12 * root.s
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.caption
-            color: "#8aa4ad"
-            font.pixelSize: 10 * root.s
-            font.capitalization: Font.AllUppercase
-            font.letterSpacing: 1.2 * root.s
+            color: root.tone === "active" || root.tone === "problem" ? theme.inkMid : theme.inkSoft
+            font.family: theme.body
+            font.pixelSize: 12.5 * root.s
         }
     }
 }

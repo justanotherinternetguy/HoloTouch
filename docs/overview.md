@@ -9,8 +9,9 @@ It runs on X11 with the XFCE window manager (xfwm4), on a laptop CPU, with an or
 
 ## What you can do with it
 
-Each hand is shown on screen as a ring cursor. A region in the middle of the camera's view maps to
-the whole screen, so the hand never has to reach the edge of the picture.
+Each hand is shown on screen as a ring cursor: sky blue for the left hand and coral for the right,
+each with a small tag that says L or R. A region in the middle of the camera's view maps to the
+whole screen, so the hand never has to reach the edge of the picture.
 
 | Hand shape | What it does | How |
 | --- | --- | --- |
@@ -18,13 +19,14 @@ the whole screen, so the hand never has to reach the edge of the picture.
 | Second hand pinches too | Resize | While one hand holds a window, the other pinches and the two pull apart or together. |
 | Flick a held window | Maximize or minimize | Flick it up and let go to maximize, down to minimize. |
 | Hold a window at a screen edge | Send to another workspace | Carry it to the left or right edge and wait; the window and the view move to the next workspace. |
-| Thumb + middle pinch | Left mouse button | One pinch is a click, two a double click. Keep it pinched and move to drag. |
+| Point, then tap the thumb down | Left mouse button | Point up with the index finger, thumb held out, to take aim: sights appear round the cursor. Tap the thumb down onto the middle finger to click, twice to double click. Keep it down and move to drag. |
 | Thumb + pinky pinch | Pie menu | A ring of items opens at the hand. Move toward one and let go to pick it. |
 | Fist, held still over a window | Close the window | A ring fills for about 0.7 s; moving or opening the hand cancels it. |
 | Two fingers up | Scroll | Tilt the two fingers down or back. The further the tilt, the faster the scroll. |
 | Claw, turned like a knob | Volume or brightness | Right hand turns the volume, left hand the screen brightness. |
 | Open palm, swept sideways | Switch workspace | A fast sweep to the left or right. |
 | Fist touched to the chin | Window switcher | Every window is laid out as a card with a picture of it. Point at one and pinch to go to it. |
+| Letter Y: thumb and pinky out, the rest folded | Dictate | Hold the sign up and speak; a note says it is listening. Let go, and what you said is typed into whatever has the keyboard. |
 | Peace sign with both hands | Camera | Held for 3 s, it opens the camera app and takes a photo. Tracking pauses until the app is closed, since only one program can use the webcam. |
 
 The pie menu starts apps (terminal, browser, files), skips music tracks, lists the running windows,
@@ -68,23 +70,27 @@ refreshes faster, so the position is predicted forward between samples from the 
 
 **Poses** (`poses.py`). From the landmarks HoloWM measures a few things in palm lengths: how far
 the thumb tip is from each fingertip, how curled and how straight each finger is, how squarely the
-palm faces the camera, and how far the fingers tilt. Hand-written rules turn these into one of
-eight poses: neutral, open, index pinch, middle pinch, pinky pinch, fist, two fingers, claw. Each
-pose has separate thresholds for entering and leaving, and must persist for a short time before it
-counts, so a pose does not flicker.
+palm faces the camera, how far the fingers tilt, and how near the thumb tip is to the middle
+finger. Hand-written rules turn these into one of ten poses: neutral, open, index pinch, pinky
+pinch, fist, two fingers, claw, aim (pointing with the thumb held out), press (the thumb
+brought down from there) and the letter Y. Each pose has separate thresholds for entering and leaving, and must
+persist for a short time before it counts, so a pose does not flicker.
 
 **Face** (`face.py`). The face mesh gives the chin's position and the face's size, which tell how
 near the chin a hand is, and whether it is level with the face or held out in front of it.
 
 **The engine** (`engine.py`, `interactions/`). On every tick the engine looks at each hand's pose
-and starts the matching interaction: move, click, pie menu, close, scroll, knob, window switcher or
-camera. One interaction runs at a time and owns its hands until it ends.
+and starts the matching interaction: move, click, pie menu, close, scroll, knob, dictation, window
+switcher or camera. One interaction runs at a time and owns its hands until it ends.
 
 Several guards keep misread hands from doing damage:
 
 - A hand must be in view and relaxed for a moment before its gestures count.
 - A pinch that begins while the hand is moving fast is ignored.
 - A grab leaves the window alone for the first 150 ms, and a grab shorter than 300 ms is undone.
+- The thumb only clicks from a hand that has taken aim, thumb out, for 200 ms. A hand that comes
+  to point with its thumb already tucked in is only pointing, and clicks nothing.
+- The letter Y has to be held for 300 ms, facing the camera, before the microphone is opened.
 - Only application windows can be changed, never the desktop or a panel, and fullscreen windows
   are not grabbed.
 
@@ -102,8 +108,17 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
   Clicks and key presses go through XTEST. Scrolling uses a virtual mouse on `/dev/uinput` for
   smooth high-resolution wheel events, and falls back to XTEST steps. Volume is set with `pactl`,
   brightness through `/sys/class/backlight`, and tracks are skipped with `playerctl`.
+  Dictated text is typed with `xdotool`.
 - **`FakeBackend`** holds windows in memory only. Tests use it, and so does practice mode
   (`--dry-run`), where gestures act on two stand-in windows.
+
+**Dictation** (`launcher/dictate.py`) is done by whoever runs the engine, which only says when the
+letter Y is held. While it is, the microphone is recorded by `parecord` (or `arecord`) to a file
+in the runtime directory. When the sign is dropped, the recording is handed to a speech-to-text
+program, and the text it prints is typed into the window that has the keyboard. By default that
+program is [Handy](https://handy.computer) run headless (`handy --transcribe-file`), which works on
+this machine alone; `dictate_command` under `[gesture]` names another. Recordings are deleted as
+soon as they have been read, and what was said is not logged.
 
 ### 4. The overlay
 
@@ -112,14 +127,28 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
 A fullscreen, transparent, click-through window drawn with Qt Quick sits above everything. The
 engine produces an `OverlayState` each tick and a bridge hands it to QML, which draws:
 
-- a ring cursor for each hand, closing as the pinch closes
-- a frame around the window under the hand, or the one being moved or resized
-- the pie menu and the window switcher
-- progress rings for closing a window and for the camera sign
-- the volume or brightness knob, a click pulse, a glow at the screen edge
-- brief notes for the workspace switched to and the track skipped
+- a ring cursor for each hand, in that hand's colour, which tightens as the pinch closes. A hand
+  taking aim gets sights round its ring; one that has not moved for a while goes small and pale;
+  one not yet trusted is dashed; one that is lost while holding something leaves a hollow ghost
+  and a note
+- an outline just outside the window under the hand. A held window gets a solid frame in the
+  holding hand's colour, with a bead on its nearest edge; one being resized gets a grip at the
+  corner nearest each hand, the size on its bottom edge, and the outline it began with
+- the pie menu: petals around a seed, with the wedge being aimed at shaded, since only the
+  direction of the hand counts
+- the window switcher: every window's picture as a card, over a dimmed desktop
+- a ring for closing a window, as wide as the fist may drift, and one for the camera sign
+- the volume or brightness dial, with its number; a click pulse; a bar at the screen edge that
+  fills while a held window waits to cross to the next workspace
+- brief notes for the workspace switched to and the track skipped, and one that says the
+  microphone is listening, then that what was said is being written
+- one instruction at a time, for a prompted recording or for practice mode
 - an optional diagnostics panel showing frame rate, latency, each hand's pose and measurements,
   and the hands and face as the camera sees them
+
+Everything pairs cream with ink so that it reads over light and dark windows alike, and nothing
+samples or blurs the desktop. The colours and typefaces are in `src/holowm/theme.py`, shared with
+the control panel.
 
 The core also has a tray icon (pause, diagnostics, quit) and a control socket.
 
@@ -130,12 +159,16 @@ The core also has a tray icon (pause, diagnostics, quit) and a control socket.
 `holowm panel` opens a window from which HoloWM is started and stopped without a terminal.
 `holowm panel --install` adds it to the applications menu. It shows:
 
-- a Start/Stop button, the live frame rate, the number of hands in view and the gesture in progress
-- a button to pause and resume tracking
-- switches for the diagnostics view and for practice mode
-- a guide to the gestures
-- the results of the machine checks
-- HoloWM's log
+- a Start/Stop dial whose ring is the state, and that state in a word and a sentence: running,
+  paused, stopped, practising, or running with no camera
+- the number of hands in view, the gesture in progress and the frame rate
+- a button to pause and resume tracking, and the switch for practice mode
+- a guide to the gestures, each with an illustrated hand playing it
+- practice: four steps on the two stand-in windows (grab, move, resize, pie menu), one at a
+  time, each shown on the desktop as well and ticked off when HoloWM sees it done
+- the results of the machine checks, in plain words, with what to do about any that is not fine
+- a drawer with the switch for the diagnostics view and HoloWM's log, which opens by itself when
+  something goes wrong
 
 The panel starts HoloWM as a separate process and follows it over the control socket, so closing
 the panel leaves HoloWM running, and a HoloWM started from a terminal is picked up as well.
@@ -181,8 +214,8 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 - Python 3.12 with MediaPipe, PySide6 (Qt 6), xcffib, evdev and NumPy
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
-`playerctl` (skipping tracks), `v4l2-ctl` (camera settings), and a camera app such as Snapshot or
-Cheese (the camera gesture). `holowm doctor` reports which of these are present.
+`playerctl` (skipping tracks), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
+Cheese (the camera gesture), and `parecord`, `xdotool` and Handy (dictation). `holowm doctor` reports which of these are present.
 
 ## Where things are
 
@@ -192,10 +225,11 @@ Cheese (the camera gesture). `holowm doctor` reports which of these are present.
 | `src/holowm/config.py` | Every setting and its default |
 | `src/holowm/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
 | `src/holowm/core/` | Hand tracks, filters, poses, face, the engine and its interactions |
-| `src/holowm/launcher/` | The pie menu's model and actions, and the camera app |
+| `src/holowm/launcher/` | The pie menu's model and actions, the camera app, and dictation |
 | `src/holowm/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
 | `src/holowm/overlay/` | The overlay process, its bridge to QML, and the QML components |
 | `src/holowm/panel/` | The control panel |
+| `src/holowm/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holowm/tools/` | `doctor`, `collect`, `score` and `train` |
-| `tests/` | 257 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 290 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan |

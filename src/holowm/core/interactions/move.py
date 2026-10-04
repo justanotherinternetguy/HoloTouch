@@ -23,6 +23,7 @@ class MoveInteraction(Interaction):
         super().__init__(engine)
         self.win_id = win.id
         self.primary = hand.id
+        self._side = engine.side(hand)
         self.secondary: int | None = None
         self.hand_ids = (hand.id,)
         self.min_size = (
@@ -282,8 +283,17 @@ class MoveInteraction(Interaction):
     def decorate(self, overlay: OverlayState) -> None:
         x, y, w, h = self.rect
         resizing = self.secondary is not None
+        ghost = None
+        if resizing and self._resize_start is not None:
+            # The size the resize began with, kept centred on the window as it is now.
+            w0, h0 = self._resize_start[6:]
+            ghost = (x + (w - w0) / 2, y + (h - h0) / 2, w0, h0)
         overlay.frame = FrameView(
-            x, y, w, h, "resize" if resizing else "grab", f"{round(w)} × {round(h)}" if resizing else ""
-        )
+            x, y, w, h, "resize" if resizing else "grab", f"{round(w)} × {round(h)}" if resizing else "",
+            side="" if resizing else self._side, ghost=ghost,
+        )  # fmt: skip
         overlay.edge_side = self._edge_side
         overlay.edge_progress = self._edge_progress
+        if self._edge_side:
+            target = self.engine.desktop_target(self._edge_side)
+            overlay.edge_target = -1 if target is None else target

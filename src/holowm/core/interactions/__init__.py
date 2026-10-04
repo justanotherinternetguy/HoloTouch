@@ -2,6 +2,7 @@ from holowm.core.interactions.base import Interaction
 from holowm.core.interactions.camera import CameraInteraction
 from holowm.core.interactions.click import ClickInteraction
 from holowm.core.interactions.close import CloseInteraction
+from holowm.core.interactions.dictate import DictateInteraction
 from holowm.core.interactions.menu import MenuInteraction
 from holowm.core.interactions.move import MoveInteraction
 from holowm.core.interactions.knob import KnobInteraction
@@ -13,6 +14,7 @@ __all__ = [
     "CameraInteraction",
     "ClickInteraction",
     "CloseInteraction",
+    "DictateInteraction",
     "MenuInteraction",
     "MoveInteraction",
     "KnobInteraction",

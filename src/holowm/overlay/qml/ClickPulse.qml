@@ -1,21 +1,29 @@
 import QtQuick
 
 // Ripple where the mouse button has just gone down.
-Rectangle {
+Item {
     id: root
     property var fx
     property real s: 1
-    property color accent
     readonly property bool shown: fx.click
-    onShownChanged: if (shown) { x = fx.clickX - width / 2; y = fx.clickY - height / 2; pulse.restart() }
+    onShownChanged: if (shown) { x = fx.clickX; y = fx.clickY; pulse.restart() }
 
-    width: 64 * s
-    height: width
-    radius: width / 2
-    color: "transparent"
-    border.color: accent
-    border.width: 4 * s
     opacity: 0
+
+    Rectangle {
+        anchors.centerIn: parent
+        width: 70 * root.s; height: width; radius: width / 2
+        color: "transparent"
+        border.color: theme.hairline
+        border.width: 7 * root.s
+    }
+    Rectangle {
+        anchors.centerIn: parent
+        width: 67 * root.s; height: width; radius: width / 2
+        color: "transparent"
+        border.color: theme.cream
+        border.width: 4 * root.s
+    }
 
     ParallelAnimation {
         id: pulse

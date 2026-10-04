@@ -162,6 +162,9 @@ class PieSession:
                     "y": level.cy - math.cos(rad) * offset,
                     "hovered": self.hover == i,
                     "menu": item.is_menu,
+                    "type": item.type,
+                    "data": item.data,
+                    "count": len(item.children),
                 }
             )
         back = None

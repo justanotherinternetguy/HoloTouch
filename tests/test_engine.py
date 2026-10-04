@@ -1196,29 +1196,36 @@ def test_switcher_can_be_limited_to_the_current_workspace():
     assert [i["title"] for i in sim.engine.overlay.switcher["items"]] == ["one", "two", "four"]
 
 
+def aim(sim, at=CENTRE):
+    """A hand that has come into view and is pointing, thumb out, for long enough to click."""
+    arm(sim, at)
+    sim.hold(0.4, ("aim", *at))
+
+
 def click(sim, at=CENTRE, held=0.15):
-    sim.hold(held, ("pinch_middle", *at))
-    sim.hold(0.15, ("open", *at))
+    sim.hold(held, ("press", *at))
+    sim.hold(0.15, ("aim", *at))
 
 
-def test_thumb_to_middle_finger_holds_the_mouse_button_down_where_the_cursor_is(sim):
-    arm(sim)
-    sim.hold(0.2, ("pinch_middle", *CENTRE))
+def test_thumb_of_a_pointing_hand_holds_the_mouse_button_down_where_the_cursor_is(sim):
+    aim(sim)
+    assert not sim.backend.commands  # taking aim does nothing by itself
+    sim.hold(0.2, ("press", *CENTRE))
     assert sim.backend.commands == [("button_down", *CENTRE)]
     assert isinstance(sim.engine.active, ClickInteraction)
-    sim.hold(1.0, ("pinch_middle", *CENTRE))  # held for as long as the pinch is
+    sim.hold(1.0, ("press", *CENTRE))  # held for as long as the thumb is down
     assert sim.backend.commands == [("button_down", *CENTRE)]
-    sim.hold(0.15, ("open", *CENTRE))
+    sim.hold(0.15, ("aim", *CENTRE))
     assert sim.backend.commands == [("button_down", *CENTRE), ("button_up",)]
     assert sim.engine.active is None
 
 
 def test_click_touches_no_window(sim):
     win = sim.backend.get(1)
-    arm(sim)
+    aim(sim)
     click(sim)
-    sim.hold(0.2, ("pinch_middle", *CENTRE))
-    sim.glide(0.4, "pinch_middle", CENTRE, (1500, 1000))
+    sim.hold(0.2, ("press", *CENTRE))
+    sim.glide(0.4, "press", CENTRE, (1500, 1000))
     sim.hold(0.2, ("open", 1500, 1000))
     assert (win.x, win.y, win.w, win.h) == (500, 400, 800, 600)
     assert {c[0] for c in sim.backend.commands} == {"button_down", "pointer_to", "button_up"}
@@ -1235,90 +1242,119 @@ def test_index_pinch_never_presses_the_mouse_button(sim):
 
 
 def test_pointer_stays_put_while_a_held_hand_wanders(sim):
-    arm(sim)
-    sim.hold(0.1, ("pinch_middle", *CENTRE))
-    sim.glide(0.3, "pinch_middle", CENTRE, (CENTRE[0] + 30, CENTRE[1] - 20))
-    sim.hold(0.15, ("open", CENTRE[0] + 30, CENTRE[1] - 20))
+    aim(sim)
+    sim.hold(0.1, ("press", *CENTRE))
+    sim.glide(0.3, "press", CENTRE, (CENTRE[0] + 30, CENTRE[1] - 20))
+    sim.hold(0.15, ("aim", CENTRE[0] + 30, CENTRE[1] - 20))
     assert sim.backend.commands == [("button_down", *CENTRE), ("button_up",)]
 
 
-def test_pinch_carried_somewhere_drags_the_pointer_there(sim):
-    arm(sim)
-    sim.hold(0.1, ("pinch_middle", *CENTRE))
-    sim.glide(0.4, "pinch_middle", CENTRE, (1500, 1000))
-    sim.hold(0.2, ("pinch_middle", 1500, 1000))
+def test_press_carried_somewhere_drags_the_pointer_there(sim):
+    aim(sim)
+    sim.hold(0.1, ("press", *CENTRE))
+    sim.glide(0.4, "press", CENTRE, (1500, 1000))
+    sim.hold(0.2, ("press", 1500, 1000))
     moves = sim.commands("pointer_to")
     assert sim.backend.commands[0] == ("button_down", *CENTRE) and len(moves) > 5
     assert abs(moves[-1][1] - 1500) <= 5 and abs(moves[-1][2] - 1000) <= 5 and not sim.commands("button_up")
-    sim.hold(0.15, ("open", 1500, 1000))
+    sim.hold(0.15, ("aim", 1500, 1000))
     assert sim.backend.commands[-1] == ("button_up",)
 
 
 def test_second_click_in_the_same_place_lands_on_the_first(sim):
-    arm(sim)
+    aim(sim)
     click(sim)
     nearby = (CENTRE[0] + 25, CENTRE[1] + 15)  # as near as a hand gets to the same place twice
     click(sim, at=nearby)
     assert sim.commands("button_down") == [("button_down", *CENTRE)] * 2
 
 
+def test_thumb_tapped_twice_is_a_double_click_without_taking_aim_again(sim):
+    aim(sim)
+    for _ in range(2):  # down and up as fast as a thumb goes
+        sim.hold(0.1, ("press", *CENTRE))
+        sim.hold(0.1, ("aim", *CENTRE))
+    assert [c[0] for c in sim.backend.commands] == ["button_down", "button_up"] * 2
+
+
 def test_click_somewhere_else_or_later_lands_under_the_cursor(sim):
-    arm(sim)
+    aim(sim)
     click(sim)
     there = (CENTRE[0] + 200, CENTRE[1])
-    sim.glide(0.2, "open", CENTRE, there)
-    sim.hold(0.3, ("open", *there))
+    sim.glide(0.2, "aim", CENTRE, there)
+    sim.hold(0.3, ("aim", *there))
     click(sim, at=there)  # soon after, but not at the same place
-    sim.hold(1.2, ("open", *there))
+    sim.hold(1.2, ("aim", *there))
     nearby = (there[0] + 25, there[1])
-    sim.glide(0.2, "open", there, nearby)
-    sim.hold(0.3, ("open", *nearby))
+    sim.glide(0.2, "aim", there, nearby)
+    sim.hold(0.3, ("aim", *nearby))
     click(sim, at=nearby)  # at the same place, but not soon after
     assert sim.commands("button_down") == [("button_down", *at) for at in (CENTRE, there, nearby)]
 
 
 def test_click_works_off_any_window_and_on_a_fullscreen_one(sim):
     there = (2400, 300)  # bare desktop
-    arm(sim, at=there)
+    aim(sim, at=there)
     click(sim, at=there)
     assert sim.backend.commands == [("button_down", *there), ("button_up",)]
     sim.backend.commands.clear()
     sim.backend.get(1).fullscreen = True
     sim.hold(0.4)
-    arm(sim)
+    aim(sim)
     click(sim)
     assert sim.backend.commands == [("button_down", *CENTRE), ("button_up",)]
 
 
 def test_mouse_button_is_let_go_when_the_hand_is_lost_or_holowm_paused(sim):
-    arm(sim)
-    sim.hold(0.2, ("pinch_middle", *CENTRE))
+    aim(sim)
+    sim.hold(0.2, ("press", *CENTRE))
     sim.hold(0.5)
     assert sim.backend.commands == [("button_down", *CENTRE), ("button_up",)]
-    sim.hold(0.4, ("open", *CENTRE))
-    sim.hold(0.2, ("pinch_middle", *CENTRE))
+    aim(sim)
+    sim.hold(0.2, ("press", *CENTRE))
     sim.engine.set_paused(True)
     assert sim.commands("button_up") == [("button_up",)] * 2 and sim.engine.active is None
 
 
 def test_click_says_where_it_went_for_a_moment(sim):
-    arm(sim)
-    sim.hold(0.1, ("pinch_middle", *CENTRE))
+    aim(sim)
+    sim.hold(0.1, ("press", *CENTRE))
     overlay = sim.engine.overlay
     assert overlay.click and abs(overlay.click_x - CENTRE[0]) < 1 and abs(overlay.click_y - CENTRE[1]) < 1
-    sim.hold(0.5, ("pinch_middle", *CENTRE))
+    sim.hold(0.5, ("press", *CENTRE))
     assert not sim.engine.overlay.click  # the note goes away again
 
 
-def test_hand_that_enters_with_the_middle_finger_pinched_does_not_click(sim):
-    sim.hold(0.6, ("pinch_middle", *CENTRE))
+def test_hand_that_enters_pointing_with_its_thumb_down_does_not_click(sim):
+    sim.hold(0.6, ("press", *CENTRE))
+    assert not sim.backend.commands
+
+
+def test_thumb_that_follows_the_fingers_into_a_point_does_not_click(sim):
+    arm(sim)
+    # Folding into a point, the fingers get there first: for a moment the thumb is still out.
+    sim.hold(0.15, ("aim", *CENTRE))
+    sim.hold(0.6, ("point", *CENTRE))
+    assert not sim.backend.commands
+    # Nor does it click later for having been lifted only briefly: aim has to be taken.
+    sim.hold(0.15, ("aim", *CENTRE))
+    sim.hold(0.3, ("press", *CENTRE))
     assert not sim.backend.commands
 
 
 def test_hand_turned_from_the_camera_does_not_click(sim):
     side_on = ("Right", 0.0, 1.0, 0.0, 60.0)
     sim.hold(0.4, ("open", *CENTRE, *side_on))
-    sim.hold(0.4, ("pinch_middle", *CENTRE, *side_on))
+    sim.hold(0.4, ("aim", *CENTRE, *side_on))
+    sim.hold(0.4, ("press", *CENTRE, *side_on))
+    assert not sim.backend.commands
+
+
+def test_press_begun_while_the_hand_is_moving_fast_does_not_click(sim):
+    aim(sim, at=(600, 700))
+    # Crossing the screen at over three screen heights a second, the thumb comes down halfway over.
+    sim.run(0.3, lambda f: [("aim" if f < 0.5 else "press", 600 + 1800 * f, 700)])
+    sim.hold(0.4, ("press", 2400, 700))
     assert not sim.backend.commands
 
 
@@ -1415,3 +1451,56 @@ def test_pause_cancels_and_ignores_hands(sim):
     sim.glide(0.5, "pinch_index", CENTRE, (1500, 900))
     assert sim.engine.active is None and not sim.engine.overlay.hands
     assert abs(sim.backend.get(1).x - 500) <= 3
+
+
+def test_letter_y_asks_for_the_microphone_for_as_long_as_it_is_held(sim):
+    arm(sim)
+    sim.hold(0.2, ("y_sign", *CENTRE))
+    assert not sim.engine.dictating  # not held for long enough yet
+    sim.hold(0.3, ("y_sign", *CENTRE))
+    assert sim.engine.dictating and sim.engine.overlay.dictation == "listening"
+    sim.hold(2.0, ("y_sign", *CENTRE))
+    assert sim.engine.dictating
+    sim.hold(0.2, ("open", *CENTRE))
+    assert not sim.engine.dictating and sim.engine.overlay.dictation == ""
+    assert not sim.backend.commands  # the engine itself touches nothing: it only says what is wanted
+
+
+def test_dictation_carries_on_through_a_pose_misread_for_a_moment(sim):
+    arm(sim)
+    sim.hold(0.6, ("y_sign", *CENTRE))
+    sim.hold(0.2, ("neutral", *CENTRE))
+    assert sim.engine.dictating
+    sim.hold(0.5, ("y_sign", *CENTRE))
+    assert sim.engine.dictating
+    sim.hold(0.6, ("neutral", *CENTRE))  # unclear for longer: the sign has been dropped
+    assert not sim.engine.dictating
+
+
+def test_dictation_ends_when_the_hand_is_lost_or_holowm_paused(sim):
+    arm(sim)
+    sim.hold(0.6, ("y_sign", *CENTRE))
+    sim.hold(0.5)
+    assert not sim.engine.dictating
+    arm(sim)
+    sim.hold(0.6, ("y_sign", *CENTRE))
+    assert sim.engine.dictating
+    sim.engine.set_paused(True)
+    assert not sim.engine.dictating
+
+
+def test_dictation_stops_by_itself_after_the_longest_it_may_last(sim):
+    sim.cfg.gesture.dictate_max_s = 1.0
+    arm(sim)
+    sim.hold(1.2, ("y_sign", *CENTRE))
+    assert sim.engine.dictating
+    sim.hold(0.5, ("y_sign", *CENTRE))
+    assert not sim.engine.dictating
+    sim.hold(1.0, ("y_sign", *CENTRE))  # still held up: it does not begin again by itself
+    assert not sim.engine.dictating
+
+
+def test_letter_y_held_over_a_window_does_not_close_it(sim):
+    arm(sim)
+    sim.hold(1.5, ("y_sign", *CENTRE))
+    assert not sim.commands("close") and sim.engine.overlay.close_progress == 0.0

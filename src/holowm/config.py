@@ -81,7 +81,7 @@ class PoseConfig:
     # Touching fingertips measure about 0.15; a relaxed hand sits near 0.4 to 0.6.
     pinch_enter: float = 0.25
     pinch_exit: float = 0.42
-    # A pinky or a middle-finger pinch must be nearer the thumb than the other fingertips by this factor.
+    # A pinky pinch must be nearer the thumb than the other fingertips by this factor.
     pinch_margin: float = 1.3
     pinch_on_ms: float = 30.0
     pinch_off_ms: float = 60.0
@@ -102,8 +102,15 @@ class PoseConfig:
     claw_max: float = 0.86
     claw_thumb: float = 0.38
     claw_on_ms: float = 300.0
+    # The letter Y of the manual alphabet, thumb and pinky out and the rest folded, has to be held
+    # this long before it counts: it opens the microphone.
+    y_on_ms: float = 300.0
     # A hand must be tracked and open/relaxed this long before its gestures count.
     arm_ms: float = 150.0
+    # A hand must point, with its thumb held out, this long before the thumb coming down presses
+    # the mouse button. Fingers folding into a point get there before the thumb does, and for
+    # that moment look just like taking aim.
+    aim_ms: float = 200.0
     # Pinches that start while the hand moves faster than this (screen heights/s) are ignored.
     max_onset_speed: float = 2.5
     # A hand turned further from the camera than this (see HandFeatures.facing) is read less
@@ -161,6 +168,14 @@ class GestureConfig:
     # a photo: "t" is Snapshot's. One character, or space or Return; empty presses nothing.
     camera_shutter_key: str = "t"
     camera_shutter_ms: float = 3000.0
+    # The letter Y of the manual alphabet, held up, dictates: the microphone is recorded for as long
+    # as the sign is held, and what was said is then typed into whatever has the keyboard.
+    # The command that turns the recording into text, run by the shell with {file} replaced by a
+    # 16 kHz mono WAV file. It prints the text, or JSON with a "text" field. Empty: Handy's
+    # (`handy --transcribe-file`), if Handy is installed.
+    dictate_command: str = ""
+    dictate_max_s: float = 120.0  # the longest one recording may be; it is written out then
+    dictate_trailing_space: bool = True  # a space after what was said, so that the next follows on
     resize_gain: float = 1.0
     resize_hz: float = 60.0
     min_window_w: int = 200
@@ -175,29 +190,30 @@ class GestureConfig:
     # Screen heights the hand may drift during a tap; a maximized window is pulled free beyond it.
     tap_radius: float = 0.05
     tap_speed: float = 0.5  # screen heights per second; a hand moving faster is dragging, not tapping
-    # Thumb and middle finger pinched hold the left mouse button down where the cursor is. The
-    # pointer stays there until the hand has moved this many screen heights, and then follows it:
+    # A pointing hand's thumb, brought down, holds the left mouse button down where the cursor is.
+    # The pointer stays there until the hand has moved this many screen heights, and then follows it:
     # short of that it is a click, past it a drag. A hand held still wanders about 0.02.
     click_slop: float = 0.03
 
 
 @dataclass
 class PieConfig:
-    # Pixel sizes before ui.scale is applied; defaults follow Fly-Pie.
+    # Pixel sizes before ui.scale is applied. The dead zone and the stroke length follow Fly-Pie;
+    # the petals are larger and further out than its items, and the seed is drawn to the dead zone.
     dead_zone: float = 51.0
     stroke_length: float = 150.0
-    child_offset: float = 106.0
-    child_size: float = 58.0
-    center_size: float = 109.0
+    child_offset: float = 140.0
+    child_size: float = 76.0
+    center_size: float = 108.0
     max_items: int = 12
 
 
 @dataclass
 class SwitcherConfig:
     # Pixel sizes before ui.scale is applied.
-    card_w: float = 210.0
-    card_h: float = 170.0
-    gap: float = 16.0
+    card_w: float = 260.0
+    card_h: float = 250.0
+    gap: float = 40.0
     columns: int = 6  # most cards in one row
     all_workspaces: bool = True
     thumbnails: bool = True
@@ -208,6 +224,8 @@ class SwitcherConfig:
 @dataclass
 class UiConfig:
     scale: float = 1.6
+    # No longer used: the colours are HoloWM's own now (holowm/theme.py), with one for each hand.
+    # Kept so that a config that sets them still loads.
     accent: str = "#00e5ff"
     danger: str = "#ff4d5e"
     debug: bool = False

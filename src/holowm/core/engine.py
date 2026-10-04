@@ -13,6 +13,7 @@ from holowm.core.interactions import (
     CameraInteraction,
     ClickInteraction,
     CloseInteraction,
+    DictateInteraction,
     Interaction,
     MenuInteraction,
     MoveInteraction,
@@ -113,6 +114,11 @@ class Engine:
         """Say for a moment that a track was skipped: 1 to the next one, -1 to the one before."""
         self._track = direction
         self._track_until = now + self.cfg.ui.hud_ms / 1000.0
+
+    @property
+    def dictating(self) -> bool:
+        """Whether the microphone is wanted: whoever runs the engine records it, and types what was said."""
+        return isinstance(self.active, DictateInteraction)
 
     # -- clicking --------------------------------------------------------------------------
 
@@ -258,7 +264,7 @@ class Engine:
                 win = self.backend.window_at(hand.x, hand.y)
                 if win is not None and not win.fullscreen:
                     self.active = MoveInteraction(self, hand, win, now)
-            elif hand.pose is Pose.PINCH_MIDDLE:
+            elif hand.pose is Pose.PRESS:
                 hand.consumed = True
                 self.active = ClickInteraction(self, hand, now)
             elif hand.pose is Pose.PINCH_PINKY:
@@ -274,9 +280,11 @@ class Engine:
                 self.active = ScrollInteraction(self, hand, now)
             elif hand.pose is Pose.CLAW:
                 hand.consumed = True
-                # The frame is mirrored, which makes the tracker name each hand as the other one.
-                left = (hand.handedness == "Right") == self.cfg.camera.mirror
+                left = self.side(hand) == "left"
                 self.active = KnobInteraction(self, hand, now, "brightness" if left else "volume")
+            elif hand.pose is Pose.Y_SIGN:
+                hand.consumed = True
+                self.active = DictateInteraction(self, hand, now)
             if self.active is not None:
                 return
 
@@ -311,6 +319,11 @@ class Engine:
         if target is not None:
             self.switch_desktop(target, now)
 
+    def side(self, hand: Hand | None) -> str:
+        """Which of the user's hands this is: "left" or "right"."""
+        # The frame is mirrored, which makes the tracker name each hand as the other one.
+        return "left" if hand is not None and (hand.handedness == "Right") == self.cfg.camera.mirror else "right"
+
     # -- overlay -----------------------------------------------------------------------------
 
     def _build_overlay(self, now: float) -> None:
@@ -319,7 +332,10 @@ class Engine:
         hover: Hand | None = None
         for hand in sorted(self.tracker.hands.values(), key=lambda h: h.id):
             overlay.hands.append(
-                HandView(hand.id, hand.x, hand.y, hand.pinch, hand.pose.value, hand.id in owners, hand.armed)
+                HandView(
+                    hand.id, hand.x, hand.y, hand.pinch, hand.pose.value, hand.id in owners, hand.armed,
+                    side=self.side(hand),
+                )  # fmt: skip
             )
             if hover is None and hand.armed:
                 hover = hand
@@ -328,7 +344,7 @@ class Engine:
         elif hover is not None:
             win = self.backend.window_at(hover.x, hover.y)
             if win is not None and not win.fullscreen:
-                overlay.frame = FrameView(win.x, win.y, win.w, win.h, "hover")
+                overlay.frame = FrameView(win.x, win.y, win.w, win.h, "hover", side=self.side(hover))
         if now < self._hud_until:
             overlay.hud_desktop = self._hud_desktop
             overlay.hud_count = self.backend.desktop_count()

@@ -1,6 +1,7 @@
-"""The left mouse button: down while thumb and middle finger are pinched, up when they part.
+"""The left mouse button: down while a pointing hand's thumb rests on its middle finger, up when it lifts.
 
-A quick pinch is a click, two are a double click, and a pinch that is carried somewhere drags.
+The hand points with its index finger, thumb held out, to take aim. The thumb tapped down is a
+click, twice a double click, and a thumb kept down while the hand is carried somewhere drags.
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ class ClickInteraction(Interaction):
 
     def update(self, now: float) -> bool:
         hand = self.engine.tracker.get(self.hand_id)
-        if hand is None or hand.pose is not Pose.PINCH_MIDDLE:
+        if hand is None or hand.pose is not Pose.PRESS:
             self.backend.button_up()
             return False
         if not self._dragging:

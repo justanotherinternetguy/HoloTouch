@@ -25,8 +25,10 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
 from holowm.config import LOG_ENV, SOCKET_PATH, Config  # noqa: E402
 from holowm.core.engine import Engine  # noqa: E402
 from holowm.launcher.camera import Shutter, camera_command  # noqa: E402
+from holowm.launcher.dictate import Dictation  # noqa: E402
 from holowm.overlay.bridge import Bridge  # noqa: E402
 from holowm.overlay.images import WindowImageProvider, WindowImages  # noqa: E402
+from holowm.theme import PALETTE, qml_theme  # noqa: E402
 from holowm.x11.fake import FakeBackend  # noqa: E402
 
 log = logging.getLogger(__name__)
@@ -69,12 +71,12 @@ def _use_desktop_icon_theme() -> None:
     QIcon.setFallbackThemeName("hicolor")
 
 
-def _tray_pixmap(color: str, paused: bool) -> QPixmap:
+def _tray_pixmap(paused: bool) -> QPixmap:
     pixmap = QPixmap(64, 64)
     pixmap.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    tone = QColor("#7a8a90" if paused else color)
+    tone = QColor(PALETTE["muted" if paused else "mint"])
     painter.setPen(QPen(tone, 6))
     painter.drawEllipse(8, 8, 48, 48)
     painter.setBrush(tone)
@@ -105,6 +107,8 @@ class App:
         self._camera_app: subprocess.Popen | None = None  # the camera app, while it has the webcam
         self._lent = False  # tracking is paused only because the camera app has the webcam
         self._shutter: Shutter | None = None  # at work until the camera app has taken its photo
+        self._dictation = Dictation(cfg, backend)
+        self._said: dict | None = None  # an instruction the control panel asked to have shown
         self._view = self._make_view()
         self._tray = self._make_tray()
         self._server = self._make_server()
@@ -137,6 +141,7 @@ class App:
         view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
         view.engine().addImageProvider("theme", ThemeIconProvider())
         view.engine().addImageProvider("window", WindowImageProvider(self.images))
+        view.rootContext().setContextProperty("theme", qml_theme())
         view.rootContext().setContextProperty("bridge", self.bridge)
         view.setSource(QUrl.fromLocalFile(str(_QML)))
         for error in view.errors():
@@ -150,7 +155,7 @@ class App:
     def _make_tray(self) -> QSystemTrayIcon | None:
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return None
-        tray = QSystemTrayIcon(QIcon(_tray_pixmap(self.cfg.ui.accent, False)))
+        tray = QSystemTrayIcon(QIcon(_tray_pixmap(False)))
         menu = QMenu()
         self._pause_action = menu.addAction("Pause tracking")
         self._pause_action.triggered.connect(lambda: self.command("toggle"))
@@ -200,7 +205,7 @@ class App:
             # Hiding the window lets the compositor stop compositing fullscreen apps while paused.
             self._view.setVisible(not paused)
             if self._tray is not None:
-                self._tray.setIcon(QIcon(_tray_pixmap(self.cfg.ui.accent, paused)))
+                self._tray.setIcon(QIcon(_tray_pixmap(paused)))
                 self._pause_action.setText("Resume tracking" if paused else "Pause tracking")
             return "paused" if paused else "running"
         if name == "debug":
@@ -211,6 +216,14 @@ class App:
             return f"{state}; {self._tracker_fps():.0f} fps; {len(self.engine.tracker.hands)} hands"
         if name == "info":
             return json.dumps(self._info())
+        if name == "say" or name.startswith("say "):
+            # `say {...}` shows one instruction on the desktop, as practice mode does; `say` takes it away.
+            try:
+                said = json.loads(name[4:]) if name[4:].strip() else None
+            except ValueError:
+                return "say: not JSON"
+            self._said = {**said, "visible": True} if isinstance(said, dict) else None
+            return "said" if self._said else "unsaid"
         if name == "quit":
             QTimer.singleShot(0, self.qt.quit)
             return "bye"
@@ -219,6 +232,7 @@ class App:
     def _info(self) -> dict:
         """What the control panel shows of a running instance."""
         active = self.engine.active
+        frame = self.engine.overlay.frame
         return {
             "pid": os.getpid(),
             "paused": self.engine.paused,
@@ -227,6 +241,9 @@ class App:
             "hands": len(self.engine.tracker.hands),
             # The gesture in progress, named after its class: "move", "scroll", "knob"...
             "gesture": type(active).__name__.removesuffix("Interaction").lower() if active is not None else "",
+            # The window a hand is on: how it is held, and where it is. Practice mode watches these.
+            "frame": [frame.mode, round(frame.x), round(frame.y), round(frame.w), round(frame.h)] if frame else [],
+            "screen": list(self.engine.screen),
             "debug": self.debug,
             "practice": isinstance(self.backend, FakeBackend),
             "error": self.source.error or "",
@@ -287,7 +304,8 @@ class App:
             self._last_frame = frame
         state = self.engine.tick(now)
         self._watch_camera()
-        prompt = self.prompter.step(now) if self.prompter is not None else None
+        state.dictation = self._dictation.step(self.engine.dictating, now)
+        prompt = self.prompter.step(now) if self.prompter is not None else self._said
         self.bridge.apply(state, self._debug_info() if self.debug else None, prompt)
         if self.exit_when_done and getattr(self.source, "finished", False):
             self.qt.quit()
@@ -306,7 +324,7 @@ class App:
             f = hand.features
             lines.append(
                 f"hand {hand.id} {hand.handedness[:1]} {hand.pose.value:<12} "
-                f"i={f.pinch_index:.2f} m={f.pinch_middle:.2f} p={f.pinch_pinky:.2f} t={f.finger_tilt:+4.0f} "
+                f"i={f.pinch_index:.2f} p={f.pinch_pinky:.2f} th={f.thumb_tuck:.2f} t={f.finger_tilt:+4.0f} "
                 f"{'armed' if hand.armed else '-'}"
             )
         face = engine.face
@@ -333,7 +351,9 @@ class App:
     def run(self) -> int:
         code = self.qt.exec()
         self._tick_timer.stop()
+        self._view.setSource(QUrl())  # the QML goes before the bridge it reads from does
         self.engine.cancel_active()
+        self._dictation.close()
         self.source.stop()
         self._server.close()
         if hasattr(self.backend, "close_backend"):

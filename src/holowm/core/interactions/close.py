@@ -17,6 +17,7 @@ class CloseInteraction(Interaction):
         self.win_id = win.id
         self.started = now
         self.origin = (hand.x, hand.y)
+        self._side = engine.side(hand)
         self.progress = 0.0
 
     def update(self, now: float) -> bool:
@@ -38,6 +39,7 @@ class CloseInteraction(Interaction):
         hand = self.engine.tracker.get(self.hand_id)
         if win is None or hand is None:
             return
-        overlay.frame = FrameView(win.x, win.y, win.w, win.h, "close")
+        overlay.frame = FrameView(win.x, win.y, win.w, win.h, "close", win.title, side=self._side)
         overlay.close_progress = min(self.progress, 1.0)
-        overlay.close_x, overlay.close_y = hand.x, hand.y
+        # The ring is drawn where the fist formed: leaving it is what cancels.
+        overlay.close_x, overlay.close_y = self.origin

@@ -16,9 +16,10 @@ from PySide6.QtCore import QPoint, QSize, QUrl  # noqa: E402
 from PySide6.QtGui import QColor, QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtQuick import QQuickView  # noqa: E402
 
-from holowm.config import Config  # noqa: E402
+from holowm.config import LOG_PATH, Config  # noqa: E402
 from holowm.panel.controller import Controller  # noqa: E402
 from holowm.panel.desktop import APP_ID, ICON  # noqa: E402
+from holowm.theme import PALETTE, qml_theme  # noqa: E402
 
 log = logging.getLogger(__name__)
 
@@ -34,12 +35,14 @@ def run_panel(cfg: Config, config_path: Path | None = None, problem: str = "") -
     qt.setWindowIcon(QIcon(str(ICON)))
     area = qt.primaryScreen().availableGeometry()
     scale = min(cfg.ui.scale, _FIT * area.width() / _SIZE[0], _FIT * area.height() / _SIZE[1])
-    controller = Controller(cfg, config_path, scale, problem)
+    # What the panel remembers between openings sits beside the log.
+    controller = Controller(cfg, config_path, scale, problem, state_path=LOG_PATH.with_name("panel.json"))
 
     view = QQuickView()
     view.setTitle("HoloWM")
-    view.setColor(QColor("#040c12"))
+    view.setColor(QColor(PALETTE["cream"]))
     view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
+    view.rootContext().setContextProperty("theme", qml_theme())
     view.rootContext().setContextProperty("panel", controller)
     view.setSource(QUrl.fromLocalFile(str(_QML)))
     for error in view.errors():
@@ -55,4 +58,6 @@ def run_panel(cfg: Config, config_path: Path | None = None, problem: str = "") -
     controller.watch()
     signal.signal(signal.SIGINT, lambda *_: qt.quit())
     signal.signal(signal.SIGTERM, lambda *_: qt.quit())
-    return qt.exec()
+    code = qt.exec()
+    view.setSource(QUrl())  # the QML goes before the controller it reads from does
+    return code

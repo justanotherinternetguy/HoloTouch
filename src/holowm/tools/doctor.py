@@ -123,6 +123,18 @@ def run_doctor(cfg: Config, measure: bool = True) -> int:
 
     camera = camera_command(cfg)
     _line(True if camera else None, "camera app for the two-handed peace sign", camera or "none found; set camera_command under [gesture]")
+    from holowm.launcher.dictate import recorder_command, transcriber_command
+
+    missing = [
+        what
+        for what, there in (
+            ("parecord or arecord, to record the microphone", recorder_command() is not None),
+            ("Handy, or dictate_command under [gesture], to turn speech into text", bool(transcriber_command(cfg))),
+            ("xdotool, to type it", shutil.which("xdotool") is not None),
+        )
+        if not there
+    ]
+    _line(None if missing else True, "dictation for the letter Y", "needs " + "; ".join(missing) if missing else "")
     from holowm.tracker.landmarker import FACE_MODEL_PATH, MODEL_PATH
 
     for label, path in (("hand model", MODEL_PATH), ("face model", FACE_MODEL_PATH)):

@@ -12,7 +12,7 @@ import numpy as np
 from holowm.config import Config
 from holowm.core.filters import MotionTrack, OneEuro
 from holowm.core.pose_model import PoseModel
-from holowm.core.poses import PINCHES, HandFeatures, Pose, PoseTracker, extract_features
+from holowm.core.poses import HOLDS, HandFeatures, Pose, PoseTracker, extract_features
 from holowm.tracker.types import FrameSample, HandSample
 
 _MATCH_GATE = 0.30  # max palm travel between frames, in frame widths
@@ -46,6 +46,7 @@ class Hand:
         self.pose = Pose.NEUTRAL
         self.pose_since = t
         self.armed = False
+        self.aimed = False  # has pointed, thumb out, for long enough that the thumb coming down is a press
         # Set once the current pinch/fist/two-finger pose has been acted on or rejected.
         self.consumed = False
         self.swipe_ready = True
@@ -89,12 +90,19 @@ class Hand:
             self.consumed = False
             cfg = self.cfg.pose
             turned = self.features.facing < cfg.turned_facing
-            if self.pose in PINCHES and (
+            if self.pose in HOLDS and (
                 not self.armed or self.speed > (cfg.turned_onset_speed if turned else cfg.max_onset_speed)
             ):
                 self.consumed = True
-        if not self.armed and self.pose not in (*PINCHES, Pose.FIST):
+            if self.pose is Pose.PRESS and not self.aimed:
+                self.consumed = True
+        if not self.armed and self.pose not in (*HOLDS, Pose.FIST):
             self.armed = (t - self.born) * 1000.0 >= self.cfg.pose.arm_ms
+        # Aim once, and the thumb may go down and up any number of times.
+        if self.pose is Pose.AIM:
+            self.aimed = self.aimed or (t - self.pose_since) * 1000.0 >= self.cfg.pose.aim_ms
+        elif self.pose is not Pose.PRESS:
+            self.aimed = False
 
     @property
     def speed(self) -> float:

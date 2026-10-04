@@ -1,52 +1,69 @@
 import QtQuick
 
-// The pose a prompted recording is asking for, and how long is left to get ready or to hold it.
-Rectangle {
+// One instruction at a time, top centre: the pose a prompted recording is asking for, or the
+// step practice mode is on. The bar shows how long is left, or how far along it is.
+Item {
     id: root
     property var prompt
     property real s: 1
-    property color accent
     readonly property bool holding: !!prompt.holding
-    readonly property color tone: holding ? accent : "#8aa4ad"
+    readonly property color tone: holding ? theme.mint : theme.butter
 
     anchors.horizontalCenter: parent.horizontalCenter
-    y: parent.height * 0.14
-    width: Math.max(column.width + 96 * s, 620 * s)
-    height: column.height + 56 * s
-    radius: 16 * s
-    color: "#e6040c12"
-    border.color: Qt.rgba(tone.r, tone.g, tone.b, holding ? 0.9 : 0.4)
-    border.width: (holding ? 3 : 1.5) * s
+    y: parent.height * 0.1
+    width: Math.max(column.width + 80 * s, 520 * s)
+    height: column.height + 44 * s
     opacity: prompt.visible ? 1 : 0
     Behavior on opacity { NumberAnimation { duration: 200 } }
 
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: -2 * root.s
+        radius: 30 * root.s
+        color: theme.keyline
+    }
+    Rectangle {
+        anchors.fill: parent
+        radius: 28 * root.s
+        color: theme.ink
+    }
     Column {
         id: column
         anchors.centerIn: parent
-        spacing: 14 * root.s
-        Text {
+        spacing: 10 * root.s
+        Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: root.prompt.caption || ""
+            visible: caption.text !== ""
+            width: caption.width + 24 * root.s
+            height: caption.height + 8 * root.s
+            radius: height / 2
             color: root.tone
-            font.pixelSize: 18 * root.s
-            font.capitalization: Font.AllUppercase
-            font.letterSpacing: 2 * root.s
+            Text {
+                id: caption
+                anchors.centerIn: parent
+                text: root.prompt.caption || ""
+                color: theme.ink
+                font.family: theme.display
+                font.pixelSize: 16 * root.s
+                font.weight: Font.DemiBold
+            }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.prompt.text || ""
-            color: "#e8fbff"
-            font.pixelSize: 40 * root.s
+            color: theme.cream
+            font.family: theme.display
+            font.pixelSize: 36 * root.s
             font.weight: Font.DemiBold
         }
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: 460 * root.s
-            height: 8 * root.s
+            width: 400 * root.s
+            height: 10 * root.s
             radius: height / 2
-            color: Qt.rgba(root.tone.r, root.tone.g, root.tone.b, 0.2)
+            color: "#40FBF3E4"
             Rectangle {
-                width: parent.width * (root.prompt.progress || 0)
+                width: Math.max(parent.width * (root.prompt.progress || 0), root.prompt.progress > 0 ? height : 0)
                 height: parent.height
                 radius: height / 2
                 color: root.tone
@@ -54,9 +71,11 @@ Rectangle {
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
+            visible: text !== ""
             text: root.prompt.detail || ""
-            color: "#8aa4ad"
-            font.pixelSize: 15 * root.s
+            color: "#E3DACB"
+            font.family: theme.body
+            font.pixelSize: 16 * root.s
         }
     }
 }

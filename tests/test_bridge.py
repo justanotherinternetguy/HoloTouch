@@ -1,7 +1,7 @@
 """What the QML layer is told about the window switcher. Needs no display."""
 
 from holowm.config import Config
-from holowm.core.overlay_state import OverlayState
+from holowm.core.overlay_state import FrameView, HandView, OverlayState
 from holowm.overlay.bridge import Bridge
 
 
@@ -62,3 +62,56 @@ def test_switcher_only_reloads_pictures_when_it_reopens():
     bridge.apply(OverlayState(switcher=view()))
     assert len(images.calls) == 2
     assert bridge.switcherItems[0]["icon"] == "image://window/icon/10/2"
+
+
+def hand(hand_id, side, active=False):
+    return HandView(hand_id, 100.0 * hand_id, 200.0, 1.0 if active else 0.0, "pinch_index" if active else "neutral", active, True, side=side)
+
+
+def test_each_cursor_knows_which_hand_it_is():
+    bridge = Bridge(Config())
+    bridge.apply(OverlayState(hands=[hand(1, "left"), hand(2, "right")]))
+    assert (bridge.hand0["side"], bridge.hand1["side"]) == ("left", "right")
+    assert not bridge.hand0["lost"] and bridge.hand0["visible"]
+
+
+def test_a_hand_that_vanishes_while_holding_a_window_is_lost_and_so_is_its_frame():
+    bridge = Bridge(Config())
+    held = OverlayState(hands=[hand(1, "left"), hand(2, "right", active=True)], frame=FrameView(10, 20, 300, 200, "grab", side="right"))
+    bridge.apply(held)
+    assert bridge.frame["side"] == "right" and not bridge.frame["lost"]
+    bridge.apply(OverlayState(hands=[hand(1, "left")]))
+    # The cursor stays where the hand was last seen, and says it was holding something.
+    assert not bridge.hand1["visible"] and bridge.hand1["lost"] and bridge.hand1["x"] == 200.0
+    assert not bridge.frame["visible"] and bridge.frame["lost"]
+    bridge.apply(OverlayState(hands=[hand(1, "left")]))
+    assert bridge.hand1["lost"] and bridge.frame["lost"]  # still so while they fade
+    # A hand that only leaves, holding nothing, is not: nor is a window that was let go of.
+    bridge.apply(held)
+    bridge.apply(OverlayState(hands=[hand(1, "left"), hand(2, "right")]))
+    assert not bridge.frame["lost"]
+    bridge.apply(OverlayState(hands=[hand(1, "left")]))
+    assert not bridge.hand1["visible"] and not bridge.hand1["lost"]
+
+
+def test_menu_items_say_what_kind_of_thing_they_do():
+    from holowm.launcher.launch import default_menu
+    from holowm.launcher.menu import PieSession
+
+    cfg = Config()
+    bridge = Bridge(cfg)
+    session = PieSession(default_menu(4), 800, 500, cfg.pie, 1.0, (1920, 1080))
+    bridge.apply(OverlayState(menu=session.view()))
+    kinds = {item["name"]: item["kind"] for item in bridge.menuItems}
+    assert kinds["Terminal"] == "launch" and kinds["Window"] == "more" and kinds["Workspaces"] == "more"
+    window = next(item for item in session.stack[0].menu.children if item.name == "Window")
+    session._push(window, 800, 500, 90.0)
+    bridge.apply(OverlayState(menu=session.view()))
+    kinds = {item["name"]: item["kind"] for item in bridge.menuItems}
+    assert kinds["Close"] == "close" and kinds["Maximize"] == "window"
+
+
+def test_a_resize_carries_the_outline_it_began_with():
+    bridge = Bridge(Config())
+    bridge.apply(OverlayState(frame=FrameView(10, 20, 300, 200, "resize", "300 × 200", ghost=(35, 40, 250, 160))))
+    assert bridge.frame["ghost"] == [35, 40, 250, 160] and bridge.frame["side"] == ""

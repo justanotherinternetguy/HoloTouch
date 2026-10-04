@@ -419,6 +419,19 @@ class X11Backend:
         if not press_key(self.x, key):
             log.warning("no key on this keyboard types %r", key)
 
+    def type_text(self, text: str) -> None:
+        # xdotool finds a key for every character, remapping one for those the keyboard lacks. It
+        # is handed the text and left to it: typing a paragraph takes a second or two.
+        try:
+            self._type_call = subprocess.Popen(
+                ["xdotool", "type", "--clearmodifiers", "--delay", "4", "--file", "-"],
+                stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )  # fmt: skip
+            self._type_call.stdin.write(text.encode())
+            self._type_call.stdin.close()
+        except OSError as exc:
+            log.warning("cannot type what was said: xdotool is needed (%s)", exc.strerror or exc)
+
     def skip_track(self, direction: int) -> None:
         # playerctl finds the player last in use. Like the volume, it is not waited for.
         try:
