@@ -327,13 +327,18 @@ class App:
             lines.append(
                 f"hand {hand.id} {hand.handedness[:1]} {hand.pose.value:<12} "
                 f"i={f.pinch_index:.2f} p={f.pinch_pinky:.2f} th={f.thumb_tuck:.2f} t={f.finger_tilt:+4.0f} "
-                f"s={hand.image_scale:.2f} {'armed' if hand.armed else '-'}"
+                f"{'armed' if hand.armed else '-'}"
             )
-        # The hands left out as being in the background, each with its size (s, as above), which
-        # is under tracker.min_hand_scale or under tracker.behind_face of the face's.
-        ignored = engine.tracker.ignored
+        # How large each hand is in the picture, which is how near the camera it is; the size a
+        # new hand has to be (tracker.min_hand_scale, or tracker.behind_face of the face's); and
+        # the sizes of the hands left out as being in the background.
+        tracker = engine.tracker
+        ignored = tracker.ignored
+        sizes = [f"{h.id}: {h.image_scale:.2f}" for h in sorted(tracker.hands.values(), key=lambda h: h.id)]
+        sizes.append(f"least {tracker.smallest:.2f}")
         if ignored:
-            lines.append("ignored " + "   ".join(f"s={image_scale(h, aspect):.2f}" for h in ignored))
+            sizes.append("ignored " + " ".join(f"{image_scale(h, aspect):.2f}" for h in ignored))
+        lines.append("size    " + "   ".join(sizes))
         face = engine.face
         seen = face.visible(time.monotonic())
         if seen:

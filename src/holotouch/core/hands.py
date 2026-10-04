@@ -160,7 +160,10 @@ class HandTracker:
         self.cfg = cfg
         self.screen = screen
         self.hands: dict[int, Hand] = {}
-        self.ignored: list[HandSample] = []  # the hands in the last frame that are not followed, for the debug view
+        # For the debug view: the size a new hand had to be in the last frame, and the hands in it
+        # that are not followed.
+        self.smallest = 0.0
+        self.ignored: list[HandSample] = []
         self._last_frame = 0.0
         self._aspect = cfg.camera.width / cfg.camera.height
         self._next_id = 1
@@ -180,7 +183,7 @@ class HandTracker:
         cfg = self.cfg.tracker
         # Hands in the background are left out before any is matched, so that a hand being
         # followed is never carried on by someone else's behind it.
-        smallest = max(cfg.min_hand_scale, cfg.behind_face * face_scale)
+        smallest = self.smallest = max(cfg.min_hand_scale, cfg.behind_face * face_scale)
         sized = [(image_scale(d, self._aspect), d) for d in frame.hands]
         sized = [(size, d) for size, d in sized if size >= smallest * _KEEP]
         sizes, detections = [size for size, _ in sized], [d for _, d in sized]

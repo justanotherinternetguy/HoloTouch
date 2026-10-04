@@ -62,9 +62,10 @@ HoloTouch is three kinds of process:
 
 - The webcam is read through V4L2 at 1280×720 and 30 frames a second, and each frame is mirrored
   so that moving a hand to the right moves its cursor to the right.
-- MediaPipe finds up to two hands per frame and gives 21 landmarks for each, both as positions in
-  the picture and as a 3D shape in metres. A face mesh is found about 15 times a second, for the
-  chin gesture.
+- MediaPipe finds up to four hands per frame and gives 21 landmarks for each, both as positions in
+  the picture and as a 3D shape in metres. The core follows two of them; the others are looked for
+  so that hands in the background cannot take the user's places. A face mesh is found about 15
+  times a second, for the chin gesture and to tell how far off the user is.
 - Each result is sent to the core over a pipe as a `FrameSample`, stamped with when the frame was
   captured.
 - With no hands in view for 3 s it processes only every second frame, to save power.
@@ -78,6 +79,16 @@ HoloTouch is three kinds of process:
 **Hand tracks** (`hands.py`). Detections are matched to the hands already being followed, so each
 hand keeps its identity when hands cross or drop out for a moment. A hand that vanishes is kept for
 a quarter of a second before it is forgotten.
+
+Only hands in the foreground are followed. How large a hand is in the picture, set against its
+size in metres, tells how far off it is. A hand is left out if it is a room's length away, or if
+it is well behind the user's face: at under three quarters of the face's scale, where the user's
+own hands measure 0.9 to 2. A hand already followed is kept a little past those limits, so that
+it does not come and go. Of the hands that are left, the two nearest are followed: a new hand
+takes the place of one being followed only if that one is clearly further off. The limits are
+`min_hand_scale` and `behind_face` under `[tracker]`, and the diagnostics panel shows each hand's
+size, the least a new hand may be, and the hands left out, drawn faint. A bystander as near the
+camera as the user is cannot be told from the user this way.
 
 **Smoothing** (`filters.py`). Positions pass through a 1€ filter, which smooths a slow hand hard
 (no jitter) and a fast hand lightly (no lag). The camera gives 30 samples a second and the screen
@@ -191,7 +202,7 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
   microphone is listening, then that what was said is being written
 - one instruction at a time, for a prompted recording or for practice mode
 - an optional diagnostics panel showing frame rate, latency, each hand's pose and measurements,
-  and the hands and face as the camera sees them
+  and the hands and face as the camera sees them, with the hands left out as background drawn faint
 
 Everything pairs cream with ink so that it reads over light and dark windows alike, and nothing
 samples or blurs the desktop. The colours and typefaces are in `src/holotouch/theme.py`, shared with
@@ -289,5 +300,5 @@ Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-l
 | `src/holotouch/panel/` | The control panel |
 | `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
-| `tests/` | 352 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 358 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

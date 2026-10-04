@@ -23,6 +23,10 @@ why do they suck?
 
 all previous solutions are just an attempt to stuff spatial HCI **on top** of an outdated keyboard-mouse interaction framework.
 
+# inspiration
+
+JARVIS!!!!
+
 # design goals
 
 HoloTouch is designed to be...
@@ -33,10 +37,6 @@ HoloTouch is designed to be...
 - **quick**, **responsive,**, and **consisten**, making it an **actually viable replacement** for keyboard-mouse control
 
 HoloTouch is the **closest** you will get to tony stark tossing windows around.
-
-# inspiration
-
-JARVIS!!!!
 
 # technical details
 
