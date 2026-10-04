@@ -981,6 +981,21 @@ def test_menu_track_item_skips_a_track_and_says_so():
     assert sim.engine.overlay.track == 0  # the note goes away again
 
 
+def test_menu_pauses_the_music_and_says_so():
+    music = [MenuItem("Next track", "track", "next"), MenuItem("Play / pause", "track", "play_pause"), MenuItem("Previous track", "track", "previous")]
+    sim = Sim(menu=MenuItem("Root", children=music))
+    arm(sim, at=(1500, 900))
+    sim.hold(0.2, ("pinch_pinky", 1500, 900))
+    pause = next(i for i in sim.engine.overlay.menu["items"] if i["name"] == "Play / pause")
+    sim.glide(0.4, "pinch_pinky", (1500, 900), (pause["x"], pause["y"]))
+    sim.hold(0.2, ("pinch_pinky", pause["x"], pause["y"]))
+    sim.hold(0.3, ("open", pause["x"], pause["y"]))
+    assert sim.backend.commands == [("play_pause",)]
+    assert sim.engine.overlay.key == "Play / pause" and sim.engine.overlay.track == 0
+    sim.hold(1.5, ("open", pause["x"], pause["y"]))
+    assert sim.engine.overlay.key == ""  # the note goes away again
+
+
 def test_menu_release_in_dead_zone_cancels():
     sim = menu_sim()
     arm(sim, at=(1500, 900))
@@ -1739,3 +1754,155 @@ def test_claps_made_while_a_gesture_is_going_on_open_nothing():
         sim.run(0.15, lambda f: [("two_finger", 700, 900, "Right", REST), ("open", 2200 - 1340 * f, 900, "Left")])
         sim.run(0.15, lambda f: [("two_finger", 700, 900, "Right", REST), ("open", 860 + 1340 * f, 900, "Left")])
     assert not sim.commands("press_key")
+
+
+LOW, HIGH = (1440, 1350), (1440, 450)  # a hand held low in view, and where a toss takes it
+
+
+def toss_sim(wm_class="Google-chrome"):
+    """A web browser has the keyboard, and an open hand has come to rest low in view."""
+    sim = Sim()
+    sim.backend.add_window(WindowInfo(1, **WIN, title="in front", wm_class=wm_class))
+    sim.backend.activate(1)
+    sim.backend.commands.clear()
+    arm(sim, at=LOW)
+    return sim
+
+
+def tosses(sim, step):
+    """How many times the page is asked to be sent to the phone while `step` plays."""
+    count = 0
+    tick = sim.engine.tick
+
+    def counting(now):
+        nonlocal count
+        state = tick(now)
+        count, sim.engine.phone_wanted = count + sim.engine.phone_wanted, False
+        return state
+
+    sim.engine.tick = counting
+    try:
+        step()
+    finally:
+        del sim.engine.tick
+    return count
+
+
+@pytest.mark.parametrize("wm_class", ["Google-chrome", "firefox", "Brave-browser"])
+def test_open_palm_tossed_upward_sends_the_page_to_the_phone_once(wm_class):
+    sim = toss_sim(wm_class)
+    assert tosses(sim, lambda: sim.glide(0.25, "open", LOW, HIGH)) == 1
+    # The hand coming back down sends nothing, and neither does resting.
+    assert tosses(sim, lambda: sim.glide(0.25, "open", HIGH, LOW)) == 0
+    assert tosses(sim, lambda: sim.hold(1.0, ("open", *LOW))) == 0
+    # Tossed again, it is sent again. The engine presses no key itself.
+    assert tosses(sim, lambda: sim.glide(0.25, "open", LOW, HIGH)) == 1
+    assert not sim.backend.commands
+
+
+@pytest.mark.parametrize("wm_class", ["com.mitchellh.ghostty", "Thunar", ""])
+def test_a_toss_sends_nothing_when_it_is_not_a_browser_that_has_the_keyboard(wm_class):
+    sim = toss_sim(wm_class)
+    assert tosses(sim, lambda: sim.glide(0.25, "open", LOW, HIGH)) == 0
+
+
+def test_a_toss_sends_nothing_when_the_phone_is_turned_off_in_the_configuration():
+    sim = toss_sim()
+    sim.cfg.phone.enabled = False
+    assert tosses(sim, lambda: sim.glide(0.25, "open", LOW, HIGH)) == 0
+
+
+def test_a_hand_raised_into_view_has_not_tossed_anything():
+    sim = toss_sim()
+    sim.hold(0.5)  # the hand is gone
+    # It comes up from the bottom edge, open, as fast as a toss, and stays up.
+    assert tosses(sim, lambda: sim.glide(0.3, "open", (1440, 1750), HIGH)) == 0
+    assert tosses(sim, lambda: sim.hold(0.5, ("open", *HIGH))) == 0
+
+
+def test_a_slow_rise_a_relaxed_hand_or_a_sweep_sideways_is_no_toss():
+    sim = toss_sim()
+    assert tosses(sim, lambda: sim.glide(1.2, "open", LOW, HIGH)) == 0
+    sim.glide(0.5, "open", HIGH, LOW)
+    sim.hold(0.4, ("neutral", *LOW))
+    assert tosses(sim, lambda: sim.glide(0.25, "neutral", LOW, HIGH)) == 0
+    sim.glide(0.5, "open", HIGH, (700, 900))
+    sim.hold(0.4, ("open", 700, 900))
+    # Swept to the right, it is the Enter key and not a toss; up and across at once, it is neither.
+    assert tosses(sim, lambda: sim.glide(0.25, "open", (700, 900), (2000, 900))) == 0
+    assert sim.backend.commands == [("press_key", "Return")]
+    sim.hold(1.0, ("open", 2000, 900))
+    assert tosses(sim, lambda: sim.glide(0.25, "open", (2000, 900), (1100, 100))) == 0
+    assert sim.backend.commands == [("press_key", "Return")]
+
+
+def test_a_toss_while_the_hand_is_busy_or_a_clap_sends_nothing():
+    sim = toss_sim()
+    # A pinch that holds a window rises with it.
+    sim.hold(0.3, ("pinch_index", *CENTRE))
+    assert tosses(sim, lambda: sim.glide(0.25, "pinch_index", CENTRE, (900, 100))) == 0
+    sim.hold(0.5)
+    sim.hold(0.4, *palms(0.30, y=1350))
+    assert tosses(sim, lambda: sim.run(0.2, lambda f: palms(0.30 - 0.27 * f, y=1350 - 900 * f))) == 0
+
+
+def app_menu_sim(wm_class):
+    """A pie menu of two items, the second of them the app's own, with a window of this class having the keyboard."""
+    root = MenuItem("Root", children=[MenuItem("Terminal", "command", "term"), MenuItem("This app", "app_actions")])
+    sim = Sim(menu=root)
+    sim.backend.add_window(WindowInfo(1, **WIN, title="in use", wm_class=wm_class))
+    sim.backend.activate(1)
+    sim.backend.commands.clear()
+    return sim
+
+
+def pick_for_app(sim, name, at=(1500, 900)):
+    """Open the menu, enter the app's item, which lies straight down, and let go on the item of that name there."""
+    below = (at[0], at[1] + 300)
+    arm(sim, at=at)
+    sim.hold(0.2, ("pinch_pinky", *at))
+    root = sim.engine.overlay.menu
+    sim.glide(0.4, "pinch_pinky", at, below)
+    sim.hold(0.2, ("pinch_pinky", *below))
+    inside = sim.engine.overlay.menu
+    item = next(i for i in inside["items"] if i["name"] == name)
+    sim.glide(0.4, "pinch_pinky", below, (item["x"], item["y"]))
+    sim.hold(0.2, ("pinch_pinky", item["x"], item["y"]))
+    sim.hold(0.3, ("open", item["x"], item["y"]))
+    return root, inside
+
+
+def test_the_menu_goes_back_in_the_history_of_a_web_browser():
+    sim = app_menu_sim("firefox")
+    root, inside = pick_for_app(sim, "Go back")
+    assert [i["name"] for i in root["items"]] == ["Terminal", "This page"] and root["items"][1]["menu"]
+    assert [i["name"] for i in inside["items"]] == [
+        "Send to phone", "Close tab", "Go forward", "Next tab", "Reload", "Escape", "Previous tab", "Go back",
+    ]  # fmt: skip
+    assert sim.backend.commands == [("press_key", "alt+Left")]
+    sim.hold(0.5, ("open", 1500, 900))
+    pick_for_app(sim, "Go forward")
+    assert sim.backend.commands == [("press_key", "alt+Left"), ("press_key", "alt+Right")]
+    assert not sim.engine.phone_wanted
+
+
+def test_the_menu_sends_the_page_in_a_web_browser_to_the_phone():
+    sim = app_menu_sim("Google-chrome")
+    pick_for_app(sim, "Send to phone")
+    assert sim.engine.phone_wanted and not sim.backend.commands  # whoever runs the engine sends it
+
+
+@pytest.mark.parametrize(
+    "wm_class, named, item, key",
+    [
+        ("Xfce4-terminal", "This terminal", "Copy", "ctrl+shift+c"),
+        ("Thunar", "This folder", "Parent folder", "alt+Up"),
+        ("mpv", "This video", "Play / pause", "space"),
+        ("Mousepad", "This app", "Undo", "ctrl+z"),
+    ],
+)
+def test_the_menu_holds_other_keys_in_other_apps(wm_class, named, item, key):
+    sim = app_menu_sim(wm_class)
+    root, inside = pick_for_app(sim, item)
+    assert root["items"][1]["name"] == named and "Send to phone" not in [i["name"] for i in inside["items"]]
+    assert sim.backend.commands == [("press_key", key)]

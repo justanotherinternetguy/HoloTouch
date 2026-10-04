@@ -80,7 +80,9 @@ Rectangle {
         { demo: "spell", live: "spell", kind: "system", pose: "Thumb, index and pinky out", title: "App launcher",
           how: "Hold up I love you, then fingerspell an app's name until it is the only one left, or a macro's letters: R, S opens Instagram Reels." },
         { demo: "clap", live: "", kind: "system", pose: "Clap twice", title: "New tab",
-          how: "With a web browser in front, clap your hands twice to open a new tab in it." }
+          how: "With a web browser in front, clap your hands twice to open a new tab in it." },
+        { demo: "toss", live: "", kind: "system", pose: "Open palm, tossed up", title: "Send to phone",
+          how: "With a web browser in front, hold an open hand still, then flick it straight up: the page opens on your phone." }
     ]
 
     // The checks are run once at the start, so the panel can say how the machine stands.

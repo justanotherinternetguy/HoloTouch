@@ -6,7 +6,7 @@ from holotouch.core.hands import Hand
 from holotouch.core.interactions.base import Interaction
 from holotouch.core.overlay_state import OverlayState
 from holotouch.core.poses import Pose
-from holotouch.launcher.menu import PieSession, track_direction
+from holotouch.launcher.menu import PLAY_PAUSE, PieSession, track_direction
 
 
 class MenuInteraction(Interaction):
@@ -31,8 +31,12 @@ class MenuInteraction(Interaction):
                 self.engine.launcher.activate(item, target)
                 if item.type == "workspace":
                     self.engine.show_hud(now, int(item.data))
+                elif item.type == "track" and item.data == PLAY_PAUSE:
+                    self.engine.show_key(now, "Play / pause")
                 elif item.type == "track":
                     self.engine.show_track(now, track_direction(item))
+                elif item.type == "phone":
+                    self.engine.phone_wanted = True  # as an open palm tossed upward does
             return False
         self.session.update(hand.x, hand.y)
         return True

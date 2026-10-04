@@ -161,3 +161,6 @@ class FakeBackend:
 
     def skip_track(self, direction: int) -> None:
         self._record("skip_track", direction)
+
+    def play_pause(self) -> None:
+        self._record("play_pause")

@@ -45,7 +45,8 @@ Rectangle {
         sourceComponent: ({
             "grab": grab, "move": move, "resize": resize, "flick": flick, "edge": edge, "click": click,
             "menu": menu, "close": close, "scroll": scroll, "knob": knob, "swipe": swipe,
-            "switcher": switcher, "camera": camera, "dictate": dictate, "spell": spell, "clap": clap
+            "switcher": switcher, "camera": camera, "dictate": dictate, "spell": spell, "clap": clap,
+            "toss": toss
         })[root.gesture] || palm
     }
 
@@ -461,6 +462,35 @@ Rectangle {
             // A left hand is drawn its own width short of 96 units to the right of where it is put.
             HandFigure { x: -8 - 22 * clapping.apart; y: 34; size: 60; pose: "open"; side: "left" }
             HandFigure { x: 82 + 22 * clapping.apart; y: 34; size: 60; pose: "open" }
+        }
+    }
+    Component {
+        id: toss
+        Item {
+            id: tossing
+            // The open hand is tossed upward from rest, and the page turns up on the phone.
+            property bool sent: false
+            SequentialAnimation {
+                running: root.playing; loops: Animation.Infinite
+                PropertyAction { target: tossing; property: "sent"; value: false }
+                PauseAnimation { duration: 900 }
+                NumberAnimation { target: tossed; property: "y"; to: 2; duration: 300; easing.type: Easing.OutCubic }
+                PropertyAction { target: tossing; property: "sent"; value: true }
+                PauseAnimation { duration: 1100 }
+                NumberAnimation { target: tossed; property: "y"; to: 40; duration: 600; easing.type: Easing.InOutSine }
+            }
+            Rectangle {
+                x: 118; y: 22; width: 34; height: 58; radius: 9
+                color: tossing.sent ? theme.mint : theme.paper
+                border.color: theme.ink
+                border.width: 2.5
+                Rectangle {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: parent.height - 10; width: 10; height: 2.5; radius: 1.25
+                    color: theme.ink
+                }
+            }
+            HandFigure { id: tossed; x: 34; y: 40; size: 60; pose: "open" }
         }
     }
 }

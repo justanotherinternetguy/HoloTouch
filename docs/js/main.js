@@ -24,7 +24,7 @@
 
     // The gesture guide. A stage plays only while it is on screen; with reduced motion asked for,
     // each holds the moment that says most about it.
-    const STILLS = { edge: 2200, click: 900, menu: 1500, close: 1500, camera: 1700, dictate: 1900, spell: 1500, swipe: 1200, switcher: 1600 };
+    const STILLS = { edge: 2200, click: 900, menu: 1500, close: 1500, camera: 1700, dictate: 1900, spell: 1500, swipe: 1200, switcher: 1600, toss: 1500 };
     const players = new Map();
     const watcher = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) {

@@ -433,14 +433,17 @@ class X11Backend:
             log.warning("cannot type what was said: xdotool is needed (%s)", exc.strerror or exc)
 
     def skip_track(self, direction: int) -> None:
+        self._playerctl("next" if direction > 0 else "previous")
+
+    def play_pause(self) -> None:
+        self._playerctl("play-pause")
+
+    def _playerctl(self, command: str) -> None:
         # playerctl finds the player last in use. Like the volume, it is not waited for.
         try:
-            self._track_call = subprocess.Popen(
-                ["playerctl", "next" if direction > 0 else "previous"],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            )  # fmt: skip
+            self._track_call = subprocess.Popen(["playerctl", command], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError as exc:
-            log.warning("cannot skip a track: playerctl is needed (%s)", exc.strerror or exc)
+            log.warning("cannot tell the music to %s: playerctl is needed (%s)", command, exc.strerror or exc)
 
     def close_backend(self) -> None:
         self.button_up()  # a button left down would stay down after we are gone

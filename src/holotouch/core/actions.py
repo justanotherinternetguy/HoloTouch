@@ -81,3 +81,4 @@ class WindowBackend(Protocol):
     def press_key(self, key: str) -> None: ...
     def type_text(self, text: str) -> None: ...  # typed, as if at the keyboard, into whatever has it
     def skip_track(self, direction: int) -> None: ...  # 1 the next track of whatever is playing, -1 the one before
+    def play_pause(self) -> None: ...  # whatever is playing music pauses, or goes on from where it paused

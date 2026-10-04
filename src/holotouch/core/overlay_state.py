@@ -73,6 +73,8 @@ class OverlayState:
     spell_more: int = 0
     spell_opening: float = 0.0  # how far the wait for more letters has got, before the chosen one is opened
     spell_name: str = ""  # what was opened
-    key: str = ""  # for a moment after a gesture presses a key: what that did, "Enter" or "New tab"
+    # For a moment after a gesture does what cannot be seen: what that was, "Enter", "New tab" or
+    # "Play / pause". Whoever runs the engine says here how the page tossed to the phone is getting on, too.
+    key: str = ""
     track: int = 0  # for a moment after a track is skipped: 1 for the next one, -1 for the one before
     paused: bool = False

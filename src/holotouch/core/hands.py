@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import deque
 from dataclasses import replace
 from pathlib import Path
@@ -68,6 +69,7 @@ class Hand:
         self.quiet_until = 0.0  # until then every pose it makes is spent unacted on: it has just been spelling
         self.swipe_ready = True
         self.swipe_since = 0.0  # only motion after this time can count as a swipe
+        self.rest_at = -math.inf  # when it was last held still, having been in view a while: a toss starts from there
         self.x = self.y = self.ux = self.uy = 0.0
         self.pinch = 0.0
         self.history: deque[tuple[float, float, float]] = deque()

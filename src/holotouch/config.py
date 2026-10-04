@@ -13,6 +13,7 @@ RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 MENU_PATH = CONFIG_DIR / "menu.toml"
 MACROS_PATH = CONFIG_DIR / "macros.toml"
+PHONE_PATH = CONFIG_DIR / "phone"  # the phone's address on the network, once `holotouch phone` has found it
 SOCKET_PATH = RUNTIME_DIR / "holotouch.sock"
 # The control panel sends the output of the HoloTouch it starts to LOG_PATH, and names that file to
 # it in this environment variable, so that a panel opened later knows where to read.
@@ -160,6 +161,13 @@ class GestureConfig:
     # No longer used: a swipe does not switch workspaces any more. Kept so that a config that
     # sets it still loads.
     swipe_natural: bool = True
+    # An open palm, held still and then tossed straight up, sends the page in the web browser that
+    # has the keyboard to the phone (see [phone]). The hand has to rise this many screen heights,
+    # starting from rest no longer ago than toss_window_ms: a hand only being raised into view was
+    # never at rest, and does not count. swipe_ratio, swipe_min_facing and swipe_cooldown_ms hold
+    # for it as they do for the sweep to the right.
+    toss_min_travel: float = 0.40
+    toss_window_ms: float = 450.0
     # Hands clapped twice open a new tab, when the window that has the keyboard is a web browser.
     # A clap is the two palms this many metres apart or more, then this near or nearer, within
     # clap_close_ms. Two claps within clap_window_ms are the pair.
@@ -167,7 +175,8 @@ class GestureConfig:
     clap_together: float = 0.08
     clap_close_ms: float = 350.0
     clap_window_ms: float = 900.0
-    # The browsers, each by a word of its window class: "Google-chrome" has the word chrome.
+    # The browsers, each by a word of its window class: "Google-chrome" has the word chrome. A page
+    # is sent to the phone from these too.
     clap_browsers: str = (
         "chrome chromium thorium firefox librewolf waterfox floorp zen brave vivaldi opera edge "
         "falkon konqueror epiphany midori tor"
@@ -259,6 +268,24 @@ class SpellConfig:
 
 
 @dataclass
+class PhoneConfig:
+    # An Android phone reached by adb, with USB debugging allowed. An open palm tossed upward sends
+    # it the address of the page in the web browser that has the keyboard. Plugged in, the phone
+    # is reached by USB. `holotouch phone`, run once while it is plugged in, lets it be reached
+    # over Wi-Fi from then on, with no cable.
+    enabled: bool = True
+    # What the phone does with the address. "view" opens it in the phone's browser, to read on
+    # there. "share" hands it to the phone's share sheet, to pick the app that keeps it.
+    action: str = "view"
+    # The app that is handed it, by package name: "com.brave.browser". Empty: the phone's choice.
+    app: str = ""
+    # Which device, as `adb devices` names it: "a85a9b46" by USB, "192.168.1.23:5555" over the
+    # network. Empty: the phone `holotouch phone` found, over Wi-Fi, or else the one plugged in.
+    serial: str = ""
+    wake: bool = True  # turn the phone's screen on first
+
+
+@dataclass
 class PieConfig:
     # Pixel sizes before ui.scale is applied. The dead zone and the stroke length follow Fly-Pie;
     # the petals are larger and further out than its items, and the seed is drawn to the dead zone.
@@ -304,6 +331,7 @@ class Config:
     pose: PoseConfig = field(default_factory=PoseConfig)
     gesture: GestureConfig = field(default_factory=GestureConfig)
     spell: SpellConfig = field(default_factory=SpellConfig)
+    phone: PhoneConfig = field(default_factory=PhoneConfig)
     pie: PieConfig = field(default_factory=PieConfig)
     switcher: SwitcherConfig = field(default_factory=SwitcherConfig)
     ui: UiConfig = field(default_factory=UiConfig)

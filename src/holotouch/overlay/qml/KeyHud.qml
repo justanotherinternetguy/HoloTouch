@@ -1,7 +1,7 @@
 import QtQuick
 import "../../ui"
 
-// Brief note that a gesture pressed a key, and what that did.
+// Brief note that a gesture pressed a key, and what that did, or of how the page sent to the phone is getting on.
 Item {
     id: root
     property var fx
@@ -35,7 +35,7 @@ Item {
             color: theme.mint
             Icon {
                 anchors.centerIn: parent
-                name: root.key === "Enter" ? "enter" : "plus"
+                name: root.key === "Enter" ? "enter" : root.key === "New tab" ? "plus" : root.key === "Play / pause" ? "playPause" : "phone"
                 size: 22 * root.s
                 stroke: 2.4
             }

@@ -27,6 +27,7 @@ from holotouch.core.engine import Engine  # noqa: E402
 from holotouch.core.hands import image_scale  # noqa: E402
 from holotouch.launcher.camera import Shutter, camera_command  # noqa: E402
 from holotouch.launcher.dictate import Dictation  # noqa: E402
+from holotouch.launcher.phone import PhoneLink  # noqa: E402
 from holotouch.overlay.bridge import Bridge  # noqa: E402
 from holotouch.overlay.images import WindowImageProvider, WindowImages  # noqa: E402
 from holotouch.theme import PALETTE, qml_theme  # noqa: E402
@@ -109,6 +110,7 @@ class App:
         self._lent = False  # tracking is paused only because the camera app has the webcam
         self._shutter: Shutter | None = None  # at work until the camera app has taken its photo
         self._dictation = Dictation(cfg, backend)
+        self._phone = PhoneLink(cfg, backend)
         self._said: dict | None = None  # an instruction the control panel asked to have shown
         self._view = self._make_view()
         self._tray = self._make_tray()
@@ -225,6 +227,9 @@ class App:
                 return "say: not JSON"
             self._said = {**said, "visible": True} if isinstance(said, dict) else None
             return "said" if self._said else "unsaid"
+        if name == "phone":
+            # What tossing an open palm upward does, for when there is no hand to toss.
+            return "sending" if self._phone.send(time.monotonic()) else "not sent: no web browser has the keyboard, or a page is on its way already"
         if name == "quit":
             QTimer.singleShot(0, self.qt.quit)
             return "bye"
@@ -306,6 +311,10 @@ class App:
         state = self.engine.tick(now)
         self._watch_camera()
         state.dictation = self._dictation.step(self.engine.dictating, now)
+        if self.engine.phone_wanted:
+            self.engine.phone_wanted = False
+            self._phone.send(now)
+        state.key = self._phone.step(now) or state.key
         prompt = self.prompter.step(now) if self.prompter is not None else self._said
         self.bridge.apply(state, self._debug_info() if self.debug else None, prompt)
         if self.exit_when_done and getattr(self.source, "finished", False):
@@ -366,6 +375,7 @@ class App:
         self._view.setSource(QUrl())  # the QML goes before the bridge it reads from does
         self.engine.cancel_active()
         self._dictation.close()
+        self._phone.close()
         self.source.stop()
         self._server.close()
         if hasattr(self.backend, "close_backend"):

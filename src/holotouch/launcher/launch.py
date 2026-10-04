@@ -8,9 +8,10 @@ import subprocess
 import tomllib
 from pathlib import Path
 
-from holotouch.config import MENU_PATH
+from holotouch.config import MENU_PATH, GestureConfig
 from holotouch.core.actions import WindowBackend, WindowInfo
-from holotouch.launcher.menu import MenuItem, item_from_dict, track_direction
+from holotouch.launcher.appmenu import app_kind
+from holotouch.launcher.menu import PLAY_PAUSE, MenuItem, item_from_dict, track_direction
 
 log = logging.getLogger(__name__)
 
@@ -35,15 +36,17 @@ def default_menu(desktop_count: int) -> MenuItem:
         MenuItem("Terminal", "command", "exo-open --launch TerminalEmulator", "utilities-terminal"),
         MenuItem("Browser", "command", "exo-open --launch WebBrowser", "web-browser"),
         MenuItem("Files", "command", "exo-open --launch FileManager", "system-file-manager"),
-        MenuItem("Escape", "key", "Escape", "escape"),
+        # What this holds depends on the app in use: see holotouch/launcher/appmenu.py.
+        MenuItem("This app", "app_actions", icon="keys"),
     ]
     # Music is the fifth of eight, straight down. Entered from the root, the first of these lies
-    # to the right and the second to the left.
+    # to the right, the second straight on down, and the third to the left.
     music = MenuItem(
         "Music",
         icon="applications-multimedia",
         children=[
             MenuItem("Next track", "track", "next", "media-skip-forward"),
+            MenuItem("Play / pause", "track", PLAY_PAUSE, "media-playback-start"),
             MenuItem("Previous track", "track", "previous", "media-skip-backward"),
         ],
     )
@@ -60,9 +63,11 @@ def load_menu(desktop_count: int, path: Path = MENU_PATH) -> MenuItem:
 
 
 class Launcher:
-    def __init__(self, backend: WindowBackend, root: MenuItem | None = None):
+    def __init__(self, backend: WindowBackend, root: MenuItem | None = None, browsers: str | None = None):
+        """browsers names the web browsers, as [gesture] clap_browsers does, which is what it is if not given."""
         self.backend = backend
         self.root = root or load_menu(backend.desktop_count())
+        self.browsers = GestureConfig().clap_browsers if browsers is None else browsers
 
     def build(self) -> MenuItem:
         """The menu tree with dynamic entries filled in for this moment."""
@@ -76,6 +81,11 @@ class Launcher:
                 MenuItem(w.title[:40] or w.wm_class or "Window", "activate_window", w.id, w.wm_class.lower())
                 for w in self.backend.windows()
             ]
+        elif item.type == "app_actions":
+            # The keys go to whatever has the keyboard, so it is that app's they are, not those
+            # of the one the hand is over.
+            kind = app_kind(self.backend.active_window(), self.browsers)
+            item.name, item.children = kind.name, copy.deepcopy(list(kind.items))
         for child in item.children:
             self._expand(child)
 
@@ -90,7 +100,10 @@ class Launcher:
         elif item.type == "activate_window":
             backend.activate(int(item.data))
         elif item.type == "track":
-            backend.skip_track(track_direction(item))
+            if item.data == PLAY_PAUSE:
+                backend.play_pause()
+            else:
+                backend.skip_track(track_direction(item))
         elif item.type == "key":
             backend.press_key(str(item.data))
         elif target is None:

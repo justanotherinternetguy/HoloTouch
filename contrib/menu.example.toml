@@ -1,5 +1,6 @@
 # Copy to ~/.config/holotouch/menu.toml to replace the built-in pie menu.
-# Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track, key.
+# Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track, key,
+# app_actions, phone.
 # Keep each level to 12 items or fewer.
 
 [[item]]
@@ -25,13 +26,19 @@ name = "Windows"
 icon = "view-grid"
 type = "running_windows"
 
-# A key is pressed in whatever has the keyboard: one character, space, Return or Escape,
-# with ctrl, shift or alt held if named first, as "ctrl+t".
+# The keys of the app in use, which HoloTouch names for it: "This page" in a web browser, with
+# back, forward, the tabs and Escape; "This terminal", "This folder", "This video" and "This document"
+# in those; and "This app" in anything else, with copy, paste, undo and Escape.
 [[item]]
-name = "Escape"
-icon = "escape"
-type = "key"
-data = "Escape"
+name = "This app"
+icon = "keys"
+type = "app_actions"
+
+# A key of your own is a "key" item, pressed in whatever has the keyboard: one character, or
+# space, Return, Escape, Tab, BackSpace, Delete, Home, End, Page_Up, Page_Down, Left, Right, Up,
+# Down or F1 to F12, with ctrl, shift or alt held if named first.
+#   name = "New tab", type = "key", data = "ctrl+t"
+# A "phone" item sends the page in the web browser to the phone, as tossing an open palm does.
 
 [[item]]
 name = "Window"
@@ -77,6 +84,12 @@ type = "submenu"
   icon = "media-skip-forward"
   type = "track"
   data = "next"
+
+  [[item.children]]
+  name = "Play / pause"
+  icon = "media-playback-start"
+  type = "track"
+  data = "play_pause"
 
   [[item.children]]
   name = "Previous track"

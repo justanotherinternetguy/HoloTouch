@@ -150,6 +150,16 @@ def _cmd_doctor(args) -> int:
     return run_doctor(load_config(args.config), measure=not args.no_camera)
 
 
+def _cmd_phone(args) -> int:
+    from holotouch.launcher.phone import pair, unpair
+
+    cfg = load_config(args.config)
+    if args.usb:
+        unpair(cfg)
+        return 0
+    return 0 if pair(cfg) else 1
+
+
 def _cmd_panel(args) -> int:
     if args.install:
         from holotouch.panel.desktop import install_launcher
@@ -242,8 +252,12 @@ def main(argv: list[str] | None = None) -> int:
     doctor.add_argument("--no-camera", action="store_true", help="skip the live tracking measurement")
     doctor.set_defaults(func=_cmd_doctor)
 
+    phone = commands.add_parser("phone", help="let the Android phone that is plugged in be sent pages over Wi-Fi from now on")
+    phone.add_argument("--usb", action="store_true", help="go back to reaching the phone by USB alone")
+    phone.set_defaults(func=_cmd_phone)
+
     ctl = commands.add_parser("ctl", help="control a running instance")
-    ctl.add_argument("command", choices=["pause", "resume", "toggle", "debug", "status", "quit"])
+    ctl.add_argument("command", choices=["pause", "resume", "toggle", "debug", "status", "phone", "quit"])
     ctl.set_defaults(func=_cmd_ctl)
 
     args = parser.parse_args(argv)

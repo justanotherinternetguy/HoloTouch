@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import math
-import re
 
 from holotouch.config import Config
 from holotouch.core.actions import ALL_DESKTOPS, WindowBackend, WindowInfo
@@ -30,6 +29,7 @@ from holotouch.core.poses import Pose
 from holotouch.launcher.apps import installed_apps
 from holotouch.launcher.launch import Launcher
 from holotouch.launcher.macros import Macro, Macros
+from holotouch.launcher.phone import browser_in_front
 from holotouch.tracker.types import FrameSample
 
 log = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class Engine:
     ):
         self.cfg = cfg
         self.backend = backend
-        self.launcher = launcher or Launcher(backend)
+        self.launcher = launcher or Launcher(backend, browsers=cfg.gesture.clap_browsers)
         if macros is None:
             macros = Macros(backend, apps=installed_apps() if cfg.spell.apps else [])
         self.macros = macros  # what the launcher opens: the macros, and the installed apps
@@ -69,6 +69,9 @@ class Engine:
         self.acting = True  # False: hands are tracked and drawn, but no gesture is started
         # Set when the camera app is asked for. Whoever runs the engine opens it, and clears this.
         self.camera_wanted = False
+        # Set when the page in the web browser is tossed to the phone. Whoever runs the engine
+        # sends it, and clears this.
+        self.phone_wanted = False
         self.latency_ms = 0.0
         self._hud_until = 0.0
         self._hud_desktop = -1
@@ -135,6 +138,10 @@ class Engine:
         """Say for a moment that a track was skipped: 1 to the next one, -1 to the one before."""
         self._track = direction
         self._track_until = now + self.cfg.ui.hud_ms / 1000.0
+
+    def show_key(self, now: float, did: str) -> None:
+        """Say for a moment what a gesture just did that cannot be seen: "Enter", "New tab", "Play / pause"."""
+        self._key, self._key_until = did, now + self.cfg.ui.hud_ms / 1000.0
 
     @property
     def dictating(self) -> bool:
@@ -366,22 +373,61 @@ class Engine:
             return True
         return False
 
+    def detect_toss(self, now: float) -> bool:
+        """True once for each open palm tossed straight up from rest, as the stroke completes."""
+        g = self.cfg.gesture
+        hands = list(self.tracker.hands.values())
+        # A hand just come into view reads as still until it has been seen to move, so it is not
+        # at rest before it is armed: one only being raised never is.
+        for hand in hands:
+            if hand.armed and hand.speed < _SWIPE_REARM_SPEED:
+                hand.rest_at = now
+        # Hands that clap rise as they come and as they go, as well as sweeping sideways.
+        if now - self.claps.met_at < g.swipe_cooldown_ms / 1000.0 or (len(hands) == 2 and palm_gap(*hands) < _CLAP_REACH):
+            return False
+        for hand in hands:
+            if not hand.swipe_ready or now < self._swipe_block_until or not hand.armed or hand.pose is not Pose.OPEN:
+                continue
+            if hand.features.facing < g.swipe_min_facing or now - hand.rest_at > g.toss_window_ms / 1000.0:
+                continue
+            # Only the rise since it was at rest counts, made with the open palm, and it is
+            # measured from as low as the hand went: it often dips first.
+            start = max(hand.rest_at, hand.pose_since, hand.swipe_since)
+            x0, y0 = max(((x, y) for t, x, y in hand.history if t >= start), key=lambda at: at[1], default=(hand.ux, hand.uy))
+            dx, dy = hand.ux - x0, y0 - hand.uy
+            if dy < g.toss_min_travel * self.screen[1] or dy < g.swipe_ratio * abs(dx):
+                continue
+            hand.swipe_ready = False
+            self._swipe_block_until = now + g.swipe_cooldown_ms / 1000.0
+            return True
+        return False
+
     def _on_swipe(self, now: float) -> None:
         if self.detect_swipe(now):
             log.debug("swipe to the right: Enter")
             self.backend.press_key("Return")
-            self._key, self._key_until = "Enter", now + self.cfg.ui.hud_ms / 1000.0
+            self.show_key(now, "Enter")
+        elif self.cfg.phone.enabled and self.detect_toss(now):
+            self._on_toss()
+
+    def _on_toss(self) -> None:
+        """An open palm tossed upward: the page goes to the phone, if it is a web browser that has the keyboard."""
+        win = browser_in_front(self.backend, self.cfg)
+        if win is None:
+            log.debug("a toss, but it is no web browser that has the keyboard")
+            return
+        log.debug("a toss: the page in %s goes to the phone", win.wm_class)
+        self.phone_wanted = True
 
     def _on_claps(self, now: float) -> None:
         """Two claps: a new tab, if it is a web browser that has the keyboard."""
-        win = self.backend.active_window()
-        words = set(re.findall(r"[a-z0-9]+", win.wm_class.lower())) if win is not None else set()
-        if not words & set(self.cfg.gesture.clap_browsers.lower().replace(",", " ").split()):
-            log.debug("two claps, but %r is no web browser", win.wm_class if win is not None else None)
+        win = browser_in_front(self.backend, self.cfg)
+        if win is None:
+            log.debug("two claps, but it is no web browser that has the keyboard")
             return
         log.debug("two claps: a new tab in %s", win.wm_class)
         self.backend.press_key("ctrl+t")
-        self._key, self._key_until = "New tab", now + self.cfg.ui.hud_ms / 1000.0
+        self.show_key(now, "New tab")
 
     def side(self, hand: Hand | None) -> str:
         """Which of the user's hands this is: "left" or "right"."""

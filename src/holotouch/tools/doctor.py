@@ -112,6 +112,45 @@ def _measure_tracking(cfg: Config) -> bool:
     return good
 
 
+def _check_phone(cfg: Config) -> None:
+    from holotouch.launcher.phone import phone_at
+
+    label = "sending pages to the phone"
+    missing = [tool for tool in ("adb", "xclip") if shutil.which(tool) is None]
+    if missing:
+        _line(None, label, "needs " + " and ".join(missing))
+        return
+    at = phone_at(cfg)
+    try:
+        if ":" in at:  # a phone on the network is looked for afresh, as it is when a page is sent
+            subprocess.run(["adb", "connect", at], capture_output=True, timeout=5)
+        listed = subprocess.run(["adb", "devices"], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        listed = ""
+    # Each device is a line of its serial number and its state: "device" once it allows debugging.
+    devices = dict(line.split()[:2] for line in listed.splitlines()[1:] if len(line.split()) >= 2)
+    ready = [name for name, state in devices.items() if state == "device"]
+    plugged = [name for name in ready if ":" not in name]
+    if ":" in at:
+        if at in ready:
+            _line(True, label, f"over Wi-Fi, at {at}")
+        elif plugged:
+            _line(True, label, f"by USB: it is not reached over Wi-Fi at {at}, which `holotouch phone` sets right")
+        else:
+            _line(None, label, f"the phone is not reached over Wi-Fi at {at}; plug it in and run `holotouch phone`")
+    elif at:
+        _line(True if at in ready else None, label, at if at in ready else f"{at} is not connected")
+    elif len(ready) == 1:
+        _line(True, label, f"by USB ({ready[0]}); `holotouch phone` lets it be reached over Wi-Fi")
+    elif ready:
+        _line(None, label, f"{len(ready)} devices are connected; name one with serial under [phone]")
+    elif devices:
+        states = ", ".join(f"{name} is {state}" for name, state in devices.items())
+        _line(None, label, f"{states}; allow USB debugging on the phone")
+    else:
+        _line(None, label, "no phone connected: plug one in with USB debugging on, so that `adb devices` lists it")
+
+
 def run_doctor(cfg: Config, measure: bool = True) -> int:
     good = _check_x11()
     good &= _check_camera(cfg, measure)
@@ -135,6 +174,8 @@ def run_doctor(cfg: Config, measure: bool = True) -> int:
         if not there
     ]
     _line(None if missing else True, "dictation for the letter Y", "needs " + "; ".join(missing) if missing else "")
+    if cfg.phone.enabled:
+        _check_phone(cfg)
     from holotouch.config import MACROS_PATH
     from holotouch.core.letters import LetterModel, model_path
     from holotouch.launcher.apps import installed_apps

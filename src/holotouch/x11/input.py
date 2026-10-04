@@ -12,7 +12,13 @@ log = logging.getLogger(__name__)
 
 _KEY_PRESS, _KEY_RELEASE = 2, 3
 _BUTTON_PRESS, _BUTTON_RELEASE = 4, 5
-_NAMED_KEYS = {"space": 0x20, "Return": 0xFF0D, "Escape": 0xFF1B}  # X keysyms; a Latin-1 character is its own
+# X keysyms; a Latin-1 character is its own.
+_NAMED_KEYS = {
+    "space": 0x20, "Return": 0xFF0D, "Escape": 0xFF1B, "Tab": 0xFF09, "BackSpace": 0xFF08, "Delete": 0xFFFF,
+    "Home": 0xFF50, "Left": 0xFF51, "Up": 0xFF52, "Right": 0xFF53, "Down": 0xFF54,
+    "Page_Up": 0xFF55, "Page_Down": 0xFF56, "End": 0xFF57,
+    **{f"F{n}": 0xFFBD + n for n in range(1, 13)},
+}  # fmt: skip
 _MODIFIERS = {"ctrl": 0xFFE3, "shift": 0xFFE1, "alt": 0xFFE9}  # the left one of each
 _WHEEL_UP, _WHEEL_DOWN = 4, 5
 _HI_RES_PER_NOTCH = 120

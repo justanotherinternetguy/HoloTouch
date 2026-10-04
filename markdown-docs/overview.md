@@ -29,11 +29,25 @@ whole screen, so the hand never has to reach the edge of the picture.
 | Letter Y: thumb and pinky out, the rest folded | Dictate | Hold the sign up and speak; a note says it is listening. Let go, and what you said is typed into whatever has the keyboard. |
 | "I love you": thumb, index and pinky out | App launcher | Hold the sign up until the launcher appears, then fingerspell an app's name until it is the only one left, or a macro's letters: R, then S, opens Instagram Reels in the browser. |
 | Both hands clapped twice | New tab | Only when a web browser has the keyboard: it is sent Ctrl+T. The claps are seen, not heard. |
+| Open palm, held still, then tossed straight up | Send the page to the phone | Only when a web browser has the keyboard: the page it shows opens on the Android phone, over Wi-Fi or the cable. |
 | Peace sign with both hands | Camera | Held for 3 s, it opens the camera app and takes a photo. Tracking pauses until the app is closed, since only one program can use the webcam. |
 
-The pie menu starts apps (terminal, browser, files), skips music tracks, lists the running windows,
-maximizes, minimizes, tiles or closes the window under the hand, switches workspaces, and presses
-the Escape key in whatever has the keyboard. Its
+The pie menu starts apps (terminal, browser, files), skips music tracks and pauses or plays the music, lists the running windows,
+maximizes, minimizes, tiles or closes the window under the hand, and switches workspaces. One of
+its items changes with the app that has the keyboard, and holds that app's own keys:
+
+| In | The item is | And holds |
+| --- | --- | --- |
+| A web browser | This page | Go back and go forward in its history, reload, the next and the previous tab, close the tab, Escape, and send the page to the phone |
+| A terminal | This terminal | Copy, paste, a new tab, clear, interrupt (Ctrl+C), the last command, and Escape |
+| A file manager | This folder | Go back and go forward, the parent folder, open, copy, paste, and a new tab |
+| mpv, Celluloid or VLC | This video | Play or pause, forward and rewind, skip a minute either way, mute, and fullscreen |
+| Evince, Atril, Xreader or Papers | This document | The next and the previous page, zoom in and out, fit the width, find, and fullscreen |
+| Anything else | This app | Copy, paste, undo, select all, save, find, and Escape |
+
+Each holds seven, the browser's eight, and two that undo each other lie opposite: go back to the
+left, go forward to the right. The kinds of app, each told by its window class, and their keys are in
+`src/holotouch/launcher/appmenu.py`. The menu's
 contents can be replaced with `~/.config/holotouch/menu.toml` (see `contrib/menu.example.toml`).
 
 The launcher opens every app that the applications menu lists, each spelt by its name with the
@@ -136,6 +150,8 @@ Several guards keep misread hands from doing damage:
   letter, which leaves time to take it back.
 - For 0.7 s after spelling, the hand that spelt starts nothing: its last letter is a fist as
   likely as not.
+- A toss has to start from a hand at rest, and rise 0.4 screen heights within 450 ms. A hand
+  that is only being raised into view was never at rest, and sends nothing.
 - Only application windows can be changed, never the desktop or a panel, and fullscreen windows
   are not grabbed.
 
@@ -152,7 +168,7 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
   with standard EWMH requests: move, resize, maximize, minimize, close, activate, switch workspace.
   Clicks and key presses go through XTEST. Scrolling uses a virtual mouse on `/dev/uinput` for
   smooth high-resolution wheel events, and falls back to XTEST steps. Volume is set with `pactl`,
-  brightness through `/sys/class/backlight`, and tracks are skipped with `playerctl`.
+  brightness through `/sys/class/backlight`, and tracks are skipped and the music paused with `playerctl`.
   Dictated text is typed with `xdotool`.
 - **`FakeBackend`** holds windows in memory only. Tests use it, and so does practice mode
   (`--dry-run`), where gestures act on two stand-in windows.
@@ -165,6 +181,31 @@ text to the backend.
 data directories: those the applications menu would list on this desktop, and whose program is
 installed. Each is opened with `gtk-launch`. Of two that are spelt alike only the first is kept,
 and a macro comes before an app.
+
+**The phone** (`launcher/phone.py`) is sent a page by whoever runs the engine, which only says
+when an open palm was tossed upward at a web browser. A browser tells no other program which
+page it shows, so the address is taken as a person would take it: Ctrl+L and Ctrl+C are pressed
+in the browser, the clipboard is read with `xclip`, and Escape and Shift+F6 hand the keyboard
+back to the page. What the clipboard held is put back if it was text. Then `adb` tells the
+phone to open the address: any Android phone with USB debugging allowed, which needs no app of
+its own. There is no server, and nothing leaves the local network.
+
+Plugged in, the phone is reached by USB. `holotouch phone`, run once while it is plugged in,
+has it listen for adb on the network as well and keeps its address in
+`~/.config/holotouch/phone`; from then on pages go over Wi-Fi and the cable can come out. The
+computer and the phone have to be on the same network, and one that lets them talk. The phone
+listens until it is next restarted, and the network may give it another address: run
+`holotouch phone` again then. A phone that cannot be reached over Wi-Fi is sent the page by USB
+if it is plugged in. `holotouch phone --usb` goes back to the cable alone. While it listens,
+anything on the network can ask the phone for debugging access, and the phone asks whether to
+allow it: allow only this computer.
+
+By default the address opens in the phone's browser. Under `[phone]`,
+`action = "share"` hands it to the phone's share sheet instead, to pick the app that keeps it,
+`app` names the one app that gets it, `serial` names the phone when it is not the one
+`holotouch phone` found or the only one plugged in, and
+`enabled = false` turns the gesture off. The overlay says whether the page was sent, and
+`holotouch ctl phone` sends it with no hand at all. Which pages were sent is not logged.
 
 **Dictation** (`launcher/dictate.py`) is done by whoever runs the engine, which only says when the
 letter Y is held. While it is, the microphone is recorded by `parecord` (or `arecord`) to a file
@@ -198,7 +239,8 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
   tile that fills as a letter is held, and under them the first six apps and macros still within
   reach, each with its icon or its letters and with what has been spelt of it picked out. The
   one about to be opened fills up as it waits. Then a note of what was opened
-- brief notes for the workspace switched to, the track skipped, the Enter key pressed and the tab opened, and one that says the
+- brief notes for the workspace switched to, the track skipped, the Enter key pressed, the tab opened and the page sent
+  to the phone (or why it could not be), and one that says the
   microphone is listening, then that what was said is being written
 - one instruction at a time, for a prompted recording or for practice mode
 - an optional diagnostics panel showing frame rate, latency, each hand's pose and measurements,
@@ -241,7 +283,8 @@ the panel leaves HoloTouch running, and a HoloTouch started from a terminal is p
 | `holotouch run --replay FILE [--loop]` | Drive the engine from a recording instead of the camera. |
 | `holotouch run --record FILE [--frames]` | Record the hand tracking while running; `--frames` saves every camera frame too. |
 | `holotouch panel [--install]` | Open the control panel, or add it to the applications menu. |
-| `holotouch ctl pause\|resume\|toggle\|debug\|status\|quit` | Control a running instance. |
+| `holotouch ctl pause\|resume\|toggle\|debug\|status\|phone\|quit` | Control a running instance. `phone` sends the page in the browser to the phone, as the toss does. |
+| `holotouch phone [--usb]` | Let the Android phone that is plugged in be sent pages over Wi-Fi from now on; `--usb` goes back to the cable. |
 | `holotouch doctor [--no-camera]` | Check that the machine has what HoloTouch needs, and measure the tracking rate. |
 | `holotouch record FILE` | Record hand tracking to a JSONL file. |
 | `holotouch collect FILE` | Record while prompting one pose after another, so the recording comes labelled. |
@@ -253,7 +296,7 @@ the panel leaves HoloTouch running, and a HoloTouch started from a terminal is p
 ## Tuning and measuring
 
 Everything adjustable lives in `~/.config/holotouch/config.toml`, in sections for the camera, tracker,
-screen mapping, filters, poses, gestures, spelling, pie menu, window switcher and overlay. Every key has a
+screen mapping, filters, poses, gestures, spelling, the phone, pie menu, window switcher and overlay. Every key has a
 default (`src/holotouch/config.py`), and an unknown key is rejected with its name.
 
 Gesture recognition is tuned against recordings rather than by feel:
@@ -283,8 +326,8 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 - Python 3.12 with MediaPipe, PySide6 (Qt 6), xcffib, evdev and NumPy
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
-`playerctl` (skipping tracks), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
-Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), and `xdg-open` (macros that open an address). `holotouch doctor` reports which of these are present.
+`playerctl` (skipping tracks and pausing the music), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
+Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), `xdg-open` (macros that open an address), and `adb`, `xclip` and an Android phone with USB debugging allowed (sending a page to the phone). `holotouch doctor` reports which of these are present.
 
 ## Where things are
 
@@ -294,11 +337,11 @@ Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-l
 | `src/holotouch/config.py` | Every setting and its default |
 | `src/holotouch/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
 | `src/holotouch/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
-| `src/holotouch/launcher/` | The pie menu's model and actions, the macros, the installed apps, the camera app, and dictation |
+| `src/holotouch/launcher/` | The pie menu's model and actions, the keys it holds for each kind of app, the macros, the installed apps, the camera app, dictation, and the phone |
 | `src/holotouch/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
 | `src/holotouch/overlay/` | The overlay process, its bridge to QML, and the QML components |
 | `src/holotouch/panel/` | The control panel |
 | `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
-| `tests/` | 358 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 418 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

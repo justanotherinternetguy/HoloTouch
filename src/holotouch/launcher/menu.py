@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from holotouch.config import PieConfig
 
 BACK = -1
-MENU_TYPES = ("submenu", "running_windows")
+PLAY_PAUSE = "play_pause"  # the "track" item that skips nothing: the music pauses, or goes on
+MENU_TYPES = ("submenu", "running_windows", "app_actions")
 ITEM_TYPES = (
     "app",  # data: desktop file id
     "command",  # data: shell command
@@ -18,8 +19,10 @@ ITEM_TYPES = (
     "send_to_workspace",  # data: workspace index for the target window
     "running_windows",  # expands to the windows on the current workspace
     "activate_window",  # data: window id
-    "track",  # data: next | previous, the way to skip in whatever is playing music
+    "track",  # data: next | previous, the way to skip in whatever is playing music, or play_pause
     "key",  # data: a key pressed in whatever has the keyboard, as "Escape" or "ctrl+t"
+    "app_actions",  # expands to the keys of the app that has the keyboard, and is named after its kind
+    "phone",  # sends the page in the web browser to the phone
 )
 
 
@@ -40,8 +43,8 @@ def item_from_dict(d: dict) -> MenuItem:
     item_type = d.get("type", "submenu" if "children" in d else "command")
     if item_type not in ITEM_TYPES:
         raise ValueError(f"unknown menu item type {item_type!r} for {d.get('name')!r}")
-    if item_type == "track" and d.get("data") not in ("next", "previous"):
-        raise ValueError(f"menu item {d.get('name')!r}: a track item's data is \"next\" or \"previous\"")
+    if item_type == "track" and d.get("data") not in ("next", "previous", PLAY_PAUSE):
+        raise ValueError(f"menu item {d.get('name')!r}: a track item's data is \"next\", \"previous\" or \"{PLAY_PAUSE}\"")
     if item_type == "key" and not (isinstance(d.get("data"), str) and d["data"]):
         raise ValueError(f"menu item {d.get('name')!r}: a key item's data is the key, as \"Escape\" or \"ctrl+t\"")
     return MenuItem(

@@ -257,6 +257,18 @@
                 right.place(82 + 22 * a, 34, 60);
                 tabs[2].setAttribute('visibility', t % 2640 >= 950 ? 'visible' : 'hidden');
             };
+        },
+
+        // The open hand is tossed upward from rest, and the page turns up on the phone.
+        toss: function (k) {
+            const phone = el('rect', { 'class': 'st-pane', x: 118, y: 22, width: 34, height: 58, rx: 9 }, k.svg);
+            el('rect', { 'class': 'st-ink', x: 130, y: 70, width: 10, height: 2.5, rx: 1.25 }, k.svg);
+            const hand = k.hand(k.svg, 'open', 34, 40, 60);
+            const y = track(40, [['p', 900], ['to', 2, 300, ease.outCubic], ['p', 1100], ['to', 40, 600, ease.sine]]);
+            return function (t) {
+                hand.place(34, y(t), 60);
+                phone.setAttribute('class', t % 2900 >= 1200 ? 'st-pane st-mint' : 'st-pane');
+            };
         }
     };
 
