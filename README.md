@@ -12,16 +12,16 @@ team HAASHtag's (Hendry, Ariana, Arthur, Song Han)'s submission for BigRedHacks 
 
 # problem
 
-we have all seen attempts at making spatial control for computers ([handy](https://github.com/Vin124/handy), [mitsu](https://devpost.com/software/mitsu-hand-and-voice-gesture-control-for-the-desktop), and [gesturecontrol](https://github.com/Mizuna737/gesturecontrol)). however, they **all suck**.
+We have all seen attempts at making spatial control for computers ([handy](https://github.com/Vin124/handy), [mitsu](https://devpost.com/software/mitsu-hand-and-voice-gesture-control-for-the-desktop), and [gesturecontrol](https://github.com/Mizuna737/gesturecontrol)). However, they **all suck**.
 
-why do they suck?
+Why do they suck?
 
 - literally just mapping your hand to cursor position
   - boring! no one wants a bastardization of spatial HCI by forcing your hand to become a mouse cursor.
 - unintuitive gestures w/ low gesture count
 - no usage of 3D space and other non-manual controls
 
-all previous solutions are just an attempt to stuff spatial HCI **on top** of an outdated keyboard-mouse interaction framework.
+All previous solutions are just an attempt to stuff spatial HCI **on top** of an outdated keyboard-mouse interaction framework.
 
 # inspiration
 
@@ -38,6 +38,12 @@ HoloTouch is designed to be...
 
 HoloTouch is the **closest** you will get to tony stark tossing windows around.
 
-# technical details
+# how we built it
+
+HoloTouch uses the built-in webcam to compute a total of >500 landmark/feature points across the user's face, hands, and forearms. We use Mediapipe for most of this computation, although we augment with a custom trained small neural net.
+
+# challenges we ran into
+
+we had to solve a longstanding problem in CV called **occlusion**. with
 
 # applications + future use
