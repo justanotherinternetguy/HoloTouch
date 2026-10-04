@@ -30,6 +30,8 @@ class TrackerSource:
         self._context = multiprocessing.get_context("spawn")
         self._process = None
         self._conn = None
+        self._asks = None  # where the tracker is asked for a photo
+        self._photos: list[tuple[str, str]] = []  # how each one asked for went: where it is, or why there is none
         self._started = 0.0
         self._last_message = 0.0
         self._suspended = False
@@ -39,10 +41,14 @@ class TrackerSource:
         from holotouch.tracker.process import tracker_main
 
         receiver, sender = self._context.Pipe(duplex=False)
-        self._process = self._context.Process(target=tracker_main, args=(sender, self.cfg, self.frames_dir), daemon=True)
+        asked, asks = self._context.Pipe(duplex=False)
+        self._process = self._context.Process(
+            target=tracker_main, args=(sender, self.cfg, self.frames_dir, asked), daemon=True
+        )
         self._process.start()
         sender.close()
-        self._conn = receiver
+        asked.close()
+        self._conn, self._asks = receiver, asks
         self._started = self._last_message = time.monotonic()
 
     def _stop_process(self) -> None:
@@ -51,9 +57,10 @@ class TrackerSource:
             self._process.join(timeout=2)
             if self._process.is_alive():
                 self._process.kill()
-        if self._conn is not None:
-            self._conn.close()
-        self._process = self._conn = None
+        for end in (self._conn, self._asks):
+            if end is not None:
+                end.close()
+        self._process = self._conn = self._asks = None
 
     def suspend(self) -> None:
         """Stop tracking and let go of the camera, so that another program can use it."""
@@ -66,6 +73,24 @@ class TrackerSource:
         if self._suspended:
             self._suspended = False
             self._start()
+
+    def snap(self, path: Path) -> bool:
+        """Ask for the frame the camera gives next to be saved as a photo; False with no camera to ask.
+
+        photos() says how it went, once drain() has heard.
+        """
+        if self._suspended or self._asks is None or self.error:
+            return False
+        try:
+            self._asks.send({"photo": str(path)})
+        except (BrokenPipeError, OSError):
+            return False
+        return True
+
+    def photos(self) -> list[tuple[str, str]]:
+        """For each photo asked for and since dealt with: where it is and "", or "" and why there is none."""
+        photos, self._photos = self._photos, []
+        return photos
 
     def drain(self) -> list[FrameSample]:
         """All samples that arrived since the last call."""
@@ -80,6 +105,8 @@ class TrackerSource:
                 if isinstance(message, FrameSample):
                     frames.append(message)
                     self.error = None
+                elif isinstance(message, dict) and "photo" in message:
+                    self._photos.append((message["photo"], message.get("problem", "")))
                 elif isinstance(message, dict) and "error" in message:
                     if message["error"] != self.error:
                         log.error("tracker: %s", message["error"])
@@ -121,6 +148,12 @@ class RecordingSource:
         self.count += len(frames)
         return frames
 
+    def snap(self, path: Path) -> bool:
+        return self._source.snap(path)
+
+    def photos(self) -> list[tuple[str, str]]:
+        return self._source.photos()
+
     def suspend(self) -> None:
         self._source.suspend()
 
@@ -161,6 +194,12 @@ class ReplaySource:
             self._index = 0
             self._offset = now - self._frames[0].t_result + 0.5
         return out
+
+    def snap(self, path: Path) -> bool:
+        return False  # a recording holds no camera
+
+    def photos(self) -> list[tuple[str, str]]:
+        return []
 
     def suspend(self) -> None:
         pass  # a recording holds no camera

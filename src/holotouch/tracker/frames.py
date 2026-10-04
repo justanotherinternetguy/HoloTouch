@@ -1,4 +1,5 @@
-"""Saves the camera's frames beside a recording, so a slower, better model can label them later.
+"""Saves the camera's frames beside a recording, so a slower, better model can label them later,
+and one frame as a photo when the core asks for it.
 
 Imported only in the tracker process (it pulls in OpenCV).
 """
@@ -16,6 +17,7 @@ import numpy as np
 log = logging.getLogger(__name__)
 
 _QUALITY = 90
+_PHOTO_QUALITY = 95
 _BACKLOG = 64  # frames that may wait to be written; beyond this new ones are dropped
 
 
@@ -25,6 +27,21 @@ def frame_name(captured_at: float) -> str:
     A recording's t_capture gives the same name, which is how landmarks are matched to pictures.
     """
     return f"{round(captured_at * 1e6):015d}.jpg"
+
+
+def save_photo(rgb: np.ndarray, path: Path, mirrored: bool) -> None:
+    """Save a frame as a photo: as the camera saw it, not as the mirror the tracker is shown."""
+    picture = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    if mirrored:
+        picture = cv2.flip(picture, 1)
+    ok, data = cv2.imencode(".jpg", picture, [cv2.IMWRITE_JPEG_QUALITY, _PHOTO_QUALITY])
+    if not ok:
+        raise OSError("JPEG encoding failed")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Written under another name first, so a file that exists is always a whole picture.
+    partial = path.with_suffix(".part")
+    partial.write_bytes(data)
+    partial.replace(path)
 
 
 class FrameWriter:

@@ -74,7 +74,7 @@ Rectangle {
         { demo: "switcher", live: "switcher", kind: "windows", pose: "Fist to chin", title: "Window switcher",
           how: "Every window becomes a card. Point at one and pinch to go to it." },
         { demo: "camera", live: "camera", kind: "system", pose: "Peace sign, both hands", title: "Camera",
-          how: "Hold both up until the ring completes to open the camera and take a photo." },
+          how: "Hold both up until the ring completes, about a second, and a photo is taken at once." },
         { demo: "dictate", live: "dictate", kind: "system", pose: "Thumb and pinky out", title: "Dictate",
           how: "Hold up the letter Y and speak. Let go, and what you said is typed where the keyboard is." },
         { demo: "spell", live: "spell", kind: "system", pose: "Thumb, index and pinky out", title: "App launcher",

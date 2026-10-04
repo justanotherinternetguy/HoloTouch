@@ -206,12 +206,16 @@ class GestureConfig:
     knob_dead_deg: float = 8.0  # a turn smaller than this changes nothing
     knob_full_deg: float = 120.0  # the turn that takes it from nothing to full
     knob_invert: bool = False  # true: turning clockwise turns it down
-    # Both hands holding up two fingers, the peace sign, for this long open the camera app.
-    camera_hold_ms: float = 3000.0
-    # The app to open, as a shell command. Empty: the first installed of snapshot, cheese, kamoso
-    # and guvcview. HoloTouch gives up the webcam while it runs, and tracks no hands until it is closed.
+    # Both hands holding up two fingers, the peace sign, for this long take a photo. HoloTouch
+    # takes it itself, at once, from the camera it is watching: at the size under [camera], which
+    # may be less than the webcam's largest.
+    camera_hold_ms: float = 1000.0
+    camera_dir: str = ""  # where photos go. Empty: HoloTouch, in the Pictures folder.
+    # A camera app to open instead, as a shell command: "snapshot". It takes the photo at the
+    # webcam's full size and shows what it sees first, but takes seconds to: HoloTouch gives up
+    # the webcam while it runs, and tracks no hands until it is closed.
     camera_command: str = ""
-    # Once the app's window has been up for camera_shutter_ms, this key is pressed in it to take
+    # Once that app's window has been up for camera_shutter_ms, this key is pressed in it to take
     # a photo: "t" is Snapshot's. One character, or space or Return; empty presses nothing.
     camera_shutter_key: str = "t"
     camera_shutter_ms: float = 3000.0

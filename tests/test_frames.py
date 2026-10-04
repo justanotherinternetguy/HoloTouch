@@ -107,6 +107,76 @@ def test_tracking_without_saving_frames(tmp_path):
     assert landmarker.times == [t for _, t in camera.frames]
 
 
+def test_a_photo_is_saved_as_the_camera_saw_it_not_as_the_mirror(tmp_path):
+    import cv2
+
+    from holotouch.tracker.frames import save_photo
+
+    rgb = np.zeros((90, 160, 3), dtype=np.uint8)
+    rgb[:, :80] = (255, 0, 0)  # red on the left of what the tracker is shown
+    save_photo(rgb, tmp_path / "new" / "mirrored.jpg", mirrored=True)
+    save_photo(rgb, tmp_path / "new" / "plain.jpg", mirrored=False)
+    mirrored, plain = (cv2.imread(str(tmp_path / "new" / name)) for name in ("mirrored.jpg", "plain.jpg"))
+    assert mirrored.shape == plain.shape == (90, 160, 3)
+    assert plain[45, 20, 2] > 200 and plain[45, 140, 2] < 50  # red (the third of blue, green, red) still on the left
+    assert mirrored[45, 20, 2] < 50 and mirrored[45, 140, 2] > 200  # flipped back to how it was
+    assert not list((tmp_path / "new").glob("*.part"))
+
+
+def test_the_tracker_saves_the_frame_in_hand_when_a_photo_is_asked_for(tmp_path):
+    import multiprocessing
+
+    from holotouch.tracker.frames import save_photo
+    from holotouch.tracker.process import take_photos
+
+    asked, asks = multiprocessing.Pipe(duplex=False)
+    alive, told, shown = [True], [], []
+    camera, landmarker = StubCamera(4, alive), StubLandmarker()
+
+    def snap(rgb):
+        shown.append(rgb)
+        if len(shown) == 2:  # the core asks while the second frame is in hand, for two at once
+            asks.send({"photo": str(tmp_path / "one.jpg")})
+            asks.send({"photo": str(tmp_path / "missing" / "\0" / "two.jpg")})
+        take_photos(asked, rgb, True, told.append, save_photo)
+
+    assert pump(camera, landmarker, Config(), alive, [time.monotonic()], None, snap) is None
+    assert len(shown) == 4 and len(landmarker.times) == 4  # tracking goes on as it was
+    assert told[0] == {"photo": str(tmp_path / "one.jpg")} and (tmp_path / "one.jpg").stat().st_size > 0
+    assert told[1]["photo"] == "" and "two.jpg" in told[1]["problem"] and len(told) == 2
+    # With the core gone, asking is over and nothing is raised.
+    asks.close()
+    take_photos(asked, shown[0], True, told.append, save_photo)
+    assert len(told) == 2
+
+
+def test_the_core_asks_the_tracker_process_for_a_photo_and_hears_how_it_went(tmp_path, monkeypatch):
+    import fake_tracker
+
+    from holotouch.tracker import process
+
+    monkeypatch.setattr(process, "tracker_main", fake_tracker.tracker_main)
+    source = TrackerSource(Config())
+    try:
+        assert source.photos() == []
+        wanted = [tmp_path / "selfies" / "one.jpg", tmp_path / "selfies" / "two.jpg"]
+        assert all(source.snap(path) for path in wanted)
+        photos, deadline = [], time.monotonic() + 20.0
+        while len(photos) < 2 and time.monotonic() < deadline:
+            source.drain()
+            photos += source.photos()
+            time.sleep(0.01)
+        assert photos == [(str(path), "") for path in wanted]
+        assert all(path.stat().st_size > 0 for path in wanted)
+        # A camera lent to another program takes no photo, and one that has come back does.
+        source.suspend()
+        assert not source.snap(tmp_path / "three.jpg")
+        source.resume()
+        assert source.snap(tmp_path / "three.jpg")
+    finally:
+        source.stop()
+
+
 class StubSource:
     """Stands in for the tracker process, so these tests never open the camera."""
 

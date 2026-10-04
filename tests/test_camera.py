@@ -1,8 +1,12 @@
-"""Taking a photo in a camera app that was just started, against the fake window backend."""
+"""Taking a photo: by HoloTouch itself, and in a camera app that was just started, against the fake window backend."""
+
+from datetime import datetime
+from pathlib import Path
 
 from holotouch.config import Config
 from holotouch.core.actions import WindowInfo
-from holotouch.launcher.camera import Shutter, camera_command
+from holotouch.launcher import camera
+from holotouch.launcher.camera import NO_PHOTO, Photographer, Shutter, camera_command, photo_dir, photo_path
 from holotouch.x11.fake import FakeBackend
 
 APP = WindowInfo(7, 200, 100, 800, 640, title="Camera")
@@ -84,7 +88,74 @@ def test_shutter_key_can_be_changed_or_left_out():
     assert run(shutter, 100.0, 2.0) is not None and not backend.commands
 
 
-def test_camera_command_prefers_what_is_configured():
+def test_a_camera_app_is_opened_only_where_one_is_named():
     cfg = Config()
+    assert camera_command(cfg) == ""  # HoloTouch takes the photo itself, whatever is installed
     cfg.gesture.camera_command = "my-camera --selfie"
     assert camera_command(cfg) == "my-camera --selfie"
+
+
+class StubSource:
+    """Stands in for the tracker: asked for photos, it says later how each went."""
+
+    def __init__(self, camera=True):
+        self.camera = camera
+        self.asked: list[Path] = []
+        self.answers: list[tuple[str, str]] = []
+
+    def snap(self, path):
+        if self.camera:
+            self.asked.append(path)
+        return self.camera
+
+    def photos(self):
+        answers, self.answers = self.answers, []
+        return answers
+
+
+def photographer(tmp_path, **source):
+    cfg = Config()
+    cfg.gesture.camera_dir = str(tmp_path / "photos")
+    return Photographer(cfg, StubSource(**source))
+
+
+def test_a_photo_is_asked_for_at_once_and_shown_for_a_moment_when_it_is_saved(tmp_path):
+    taker = photographer(tmp_path)
+    assert taker.step(100.0) == ("", "")
+    taker.take(100.0)
+    (path,) = taker.source.asked
+    assert path.parent == tmp_path / "photos" and path.name.startswith("Photo ") and path.suffix == ".jpg"
+    assert taker.step(100.02) == ("", "")  # not saved yet
+    taker.source.answers.append((str(path), ""))
+    assert taker.step(100.05) == (str(path), "")
+    assert taker.step(102.0) == (str(path), "")
+    assert taker.step(103.0) == ("", "")  # and the print goes away again
+
+
+def test_with_no_camera_or_one_that_cannot_save_no_photo_is_said_to_be_taken(tmp_path):
+    taker = photographer(tmp_path, camera=False)  # a recording played back, or a camera lent out
+    taker.take(100.0)
+    assert taker.step(100.0) == ("", NO_PHOTO) and taker.step(103.0) == ("", "")
+    taker = photographer(tmp_path)
+    taker.take(200.0)
+    taker.source.answers.append(("", "disk full"))
+    assert taker.step(200.1) == ("", NO_PHOTO)
+    # A camera that never answers, its process having died, is given up on.
+    taker = photographer(tmp_path)
+    taker.take(300.0)
+    assert taker.step(301.0) == ("", "") and taker.step(302.5) == ("", NO_PHOTO)
+    assert taker.step(305.0) == ("", "")
+
+
+def test_photos_go_to_the_pictures_folder_under_names_that_are_free(tmp_path, monkeypatch):
+    when = datetime(2026, 10, 4, 9, 30, 5)
+    first = photo_path(tmp_path, when)
+    assert first == tmp_path / "Photo 2026-10-04 09-30-05.jpg"
+    first.write_bytes(b"taken")
+    assert photo_path(tmp_path, when) == tmp_path / "Photo 2026-10-04 09-30-05 (2).jpg"  # two in one second
+    cfg = Config()
+    said = type("Said", (), {"stdout": f"{tmp_path}/Bilder\n"})
+    monkeypatch.setattr(camera.subprocess, "run", lambda *args, **kwargs: said)
+    assert photo_dir(cfg) == tmp_path / "Bilder" / "HoloTouch"
+    cfg.gesture.camera_dir = "~/selfies"
+    assert photo_dir(cfg) == Path.home() / "selfies"

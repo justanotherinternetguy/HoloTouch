@@ -81,7 +81,8 @@ _CHECKS = {
     "camera app for the two-handed peace sign": (
         "Camera app for the peace sign",
         "The peace sign has nothing to open",
-        "Install a camera app such as Snapshot or Cheese, or name one as camera_command under [gesture].",
+        "The camera app named as camera_command under [gesture] is not installed. Install it, or take "
+        "that line out for HoloTouch to take the photo itself.",
     ),
     "dictation for the letter Y": (
         "Dictation for the letter Y",

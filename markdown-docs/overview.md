@@ -30,7 +30,7 @@ whole screen, so the hand never has to reach the edge of the picture.
 | "I love you": thumb, index and pinky out | App launcher | Hold the sign up until the launcher appears, then fingerspell an app's name until it is the only one left, or a macro's letters: R, then S, opens Instagram Reels in the browser. |
 | Both hands clapped twice | New tab | Only when a web browser has the keyboard: it is sent Ctrl+T. The claps are seen, not heard. |
 | Open palm, held still, then tossed straight up | Send the page to the phone | Only when a web browser has the keyboard: the page it shows opens on the Android phone, over Wi-Fi or the cable. |
-| Peace sign with both hands | Camera | Held for 3 s, it opens the camera app and takes a photo. Tracking pauses until the app is closed, since only one program can use the webcam. |
+| Peace sign with both hands | Camera | Held for 1 s, it takes a photo at once: the screen flashes, and the photo is shown for a moment and saved in `Pictures/HoloTouch`. |
 
 The pie menu starts apps (terminal, browser, files), skips music tracks and pauses or plays the music, lists the running windows,
 maximizes, minimizes, tiles or closes the window under the hand, and switches workspaces. One of
@@ -207,6 +207,17 @@ By default the address opens in the phone's browser. Under `[phone]`,
 `enabled = false` turns the gesture off. The overlay says whether the page was sent, and
 `holotouch ctl phone` sends it with no hand at all. Which pages were sent is not logged.
 
+**The photo** (`launcher/camera.py`) is taken by HoloTouch itself, from the camera it is
+watching the hands with. The core asks the tracker process for it, and the frame the tracker
+has in hand is saved as a JPEG, turned back from the mirror the tracker is shown: on a laptop,
+within a twentieth of a second of the ring completing. Nothing is opened and tracking goes on.
+The photo is the size under `[camera]`, 1280×720 unless changed, which may be less than the
+webcam's largest. `camera_dir` under `[gesture]` says where photos go, and `camera_hold_ms` how
+long the sign is held. Naming a camera app as `camera_command` (`"snapshot"`) has that app
+opened instead and its shutter key pressed once its window has been up for `camera_shutter_ms`:
+at the webcam's full size and with a look at the picture first, but seconds later, and with
+tracking paused until the app is closed, since only one program can use the webcam.
+
 **Dictation** (`launcher/dictate.py`) is done by whoever runs the engine, which only says when the
 letter Y is held. While it is, the microphone is recorded by `parecord` (or `arecord`) to a file
 in the runtime directory. When the sign is dropped, the recording is handed to a speech-to-text
@@ -232,7 +243,8 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
 - the pie menu: petals around a seed, with the wedge being aimed at shaded, since only the
   direction of the hand counts
 - the window switcher: every window's picture as a card, over a dimmed desktop
-- a ring for closing a window, as wide as the fist may drift, and one for the camera sign
+- a ring for closing a window, as wide as the fist may drift, and one for the camera sign; then
+  a flash, and the photo that was taken, shown as a print for a moment
 - the volume or brightness dial, with its number; a click pulse; a bar at the screen edge that
   fills while a held window waits to cross to the next workspace
 - the launcher: the letters taken so far, the one the hand is making as the model reads it, a
@@ -327,7 +339,7 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
 `playerctl` (skipping tracks and pausing the music), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
-Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), `xdg-open` (macros that open an address), and `adb`, `xclip` and an Android phone with USB debugging allowed (sending a page to the phone). `holotouch doctor` reports which of these are present.
+Cheese (only where one is named as `camera_command`), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), `xdg-open` (macros that open an address), and `adb`, `xclip` and an Android phone with USB debugging allowed (sending a page to the phone). `holotouch doctor` reports which of these are present.
 
 ## Where things are
 
@@ -337,11 +349,11 @@ Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-l
 | `src/holotouch/config.py` | Every setting and its default |
 | `src/holotouch/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
 | `src/holotouch/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
-| `src/holotouch/launcher/` | The pie menu's model and actions, the keys it holds for each kind of app, the macros, the installed apps, the camera app, dictation, and the phone |
+| `src/holotouch/launcher/` | The pie menu's model and actions, the keys it holds for each kind of app, the macros, the installed apps, the photo and the camera app, dictation, and the phone |
 | `src/holotouch/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
 | `src/holotouch/overlay/` | The overlay process, its bridge to QML, and the QML components |
 | `src/holotouch/panel/` | The control panel |
 | `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
-| `tests/` | 418 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 424 tests, run against synthetic hands, recorded landmarks and the fake backend |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

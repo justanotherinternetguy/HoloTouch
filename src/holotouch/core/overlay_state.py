@@ -76,5 +76,6 @@ class OverlayState:
     # For a moment after a gesture does what cannot be seen: what that was, "Enter", "New tab" or
     # "Play / pause". Whoever runs the engine says here how the page tossed to the phone is getting on, too.
     key: str = ""
+    photo: str = ""  # for a moment after a photo is taken: the file it was saved as. Whoever runs the engine says.
     track: int = 0  # for a moment after a track is skipped: 1 for the next one, -1 for the one before
     paused: bool = False

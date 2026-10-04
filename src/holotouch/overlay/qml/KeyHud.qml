@@ -35,7 +35,7 @@ Item {
             color: theme.mint
             Icon {
                 anchors.centerIn: parent
-                name: root.key === "Enter" ? "enter" : root.key === "New tab" ? "plus" : root.key === "Play / pause" ? "playPause" : "phone"
+                name: root.key === "Enter" ? "enter" : root.key === "New tab" ? "plus" : root.key === "Play / pause" ? "playPause" : root.key === "No photo taken" ? "camera" : "phone"
                 size: 22 * root.s
                 stroke: 2.4
             }

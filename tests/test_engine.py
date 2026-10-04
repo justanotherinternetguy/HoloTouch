@@ -1508,14 +1508,15 @@ def raise_both(sim):
     sim.hold(0.3, LEFT_V, RIGHT_V)
 
 
-def test_peace_sign_held_with_both_hands_opens_the_camera(sim):
+def test_peace_sign_held_with_both_hands_takes_a_photo_after_a_second(sim):
     raise_both(sim)
     assert isinstance(sim.engine.active, CameraInteraction) and not sim.engine.camera_wanted
-    sim.hold(1.2, LEFT_V, RIGHT_V)
+    sim.hold(0.3, LEFT_V, RIGHT_V)
     overlay = sim.engine.overlay
     assert 0.3 < overlay.hold_progress < 0.7 and overlay.hold_name == "Camera"
     assert abs(overlay.hold_x - 1450) <= 4 and abs(overlay.hold_y - 900) <= 4  # the ring sits between the hands
-    sim.hold(1.7, LEFT_V, RIGHT_V)
+    assert not sim.engine.camera_wanted
+    sim.hold(0.6, LEFT_V, RIGHT_V)
     assert sim.engine.camera_wanted and sim.engine.active is None
     assert not sim.backend.scrolled and not sim.commands("activate")
     # Held on, the sign neither asks again nor starts to scroll.
@@ -1524,9 +1525,9 @@ def test_peace_sign_held_with_both_hands_opens_the_camera(sim):
     assert not sim.engine.camera_wanted and sim.engine.active is None
 
 
-def test_peace_sign_let_go_early_opens_nothing(sim):
+def test_peace_sign_let_go_early_takes_nothing(sim):
     raise_both(sim)
-    sim.hold(2.0, LEFT_V, RIGHT_V)
+    sim.hold(0.4, LEFT_V, RIGHT_V)
     sim.hold(0.3, LEFT_V, ("open", 2000, 900, "Right"))
     assert sim.engine.active is None and sim.engine.overlay.hold_progress == 0
     sim.hold(3.0, LEFT_V, ("open", 2000, 900, "Right"))  # the hand still held up does not go on to scroll
@@ -1552,15 +1553,18 @@ def test_second_hand_joining_turns_a_scroll_into_the_peace_sign(sim):
 
 def test_peace_sign_misread_for_a_moment_carries_on(sim):
     raise_both(sim)
-    sim.hold(1.5, LEFT_V, RIGHT_V)
+    sim.hold(0.3, LEFT_V, RIGHT_V)
     sim.hold(0.15, LEFT_V, ("neutral", 2000, 900, "Right"))
-    sim.hold(1.5, LEFT_V, RIGHT_V)
+    assert not sim.engine.camera_wanted and isinstance(sim.engine.active, CameraInteraction)
+    sim.hold(0.5, LEFT_V, RIGHT_V)
     assert sim.engine.camera_wanted
 
 
 def test_how_long_the_peace_sign_is_held_can_be_set(sim):
-    sim.cfg.gesture.camera_hold_ms = 1000
+    sim.cfg.gesture.camera_hold_ms = 3000
     raise_both(sim)
+    sim.hold(2.0, LEFT_V, RIGHT_V)
+    assert not sim.engine.camera_wanted and 0.5 < sim.engine.overlay.hold_progress < 0.9
     sim.hold(1.0, LEFT_V, RIGHT_V)
     assert sim.engine.camera_wanted
 

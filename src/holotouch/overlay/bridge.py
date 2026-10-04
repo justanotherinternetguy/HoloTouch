@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PySide6.QtCore import Property, QObject, Signal
+from PySide6.QtCore import Property, QObject, QUrl, Signal
 from PySide6.QtGui import QIcon
 
 from holotouch.config import Config
@@ -241,6 +241,7 @@ class Bridge(QObject):
             "clickX": state.click_x,
             "clickY": state.click_y,
             "track": state.track,
+            "photo": QUrl.fromLocalFile(state.photo).toString() if state.photo else "",
             "key": state.key,
             "dictation": state.dictation,
             "spell": state.spell,

@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
 from holotouch.config import LOG_ENV, SOCKET_PATH, Config  # noqa: E402
 from holotouch.core.engine import Engine  # noqa: E402
 from holotouch.core.hands import image_scale  # noqa: E402
-from holotouch.launcher.camera import Shutter, camera_command  # noqa: E402
+from holotouch.launcher.camera import Photographer, Shutter, camera_command  # noqa: E402
 from holotouch.launcher.dictate import Dictation  # noqa: E402
 from holotouch.launcher.phone import PhoneLink  # noqa: E402
 from holotouch.overlay.bridge import Bridge  # noqa: E402
@@ -109,6 +109,7 @@ class App:
         self._camera_app: subprocess.Popen | None = None  # the camera app, while it has the webcam
         self._lent = False  # tracking is paused only because the camera app has the webcam
         self._shutter: Shutter | None = None  # at work until the camera app has taken its photo
+        self._photographer = Photographer(cfg, source)
         self._dictation = Dictation(cfg, backend)
         self._phone = PhoneLink(cfg, backend)
         self._said: dict | None = None  # an instruction the control panel asked to have shown
@@ -284,7 +285,9 @@ class App:
     def _watch_camera(self) -> None:
         if self.engine.camera_wanted:
             self.engine.camera_wanted = False
-            if self._camera_app is None:
+            if not camera_command(self.cfg):
+                self._photographer.take(time.monotonic())  # at once, from the camera the hands are watched with
+            elif self._camera_app is None:
                 self._open_camera()
         if self._shutter is not None and not self._shutter.step(time.monotonic()):
             self._shutter = None
@@ -314,7 +317,8 @@ class App:
         if self.engine.phone_wanted:
             self.engine.phone_wanted = False
             self._phone.send(now)
-        state.key = self._phone.step(now) or state.key
+        state.photo, no_photo = self._photographer.step(now)
+        state.key = self._phone.step(now) or no_photo or state.key
         prompt = self.prompter.step(now) if self.prompter is not None else self._said
         self.bridge.apply(state, self._debug_info() if self.debug else None, prompt)
         if self.exit_when_done and getattr(self.source, "finished", False):

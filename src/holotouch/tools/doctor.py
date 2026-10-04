@@ -158,10 +158,14 @@ def run_doctor(cfg: Config, measure: bool = True) -> int:
     _line(True if uinput else None, "smooth scrolling via /dev/uinput", "" if uinput else "falling back to XTEST steps")
     playerctl = shutil.which("playerctl") is not None
     _line(True if playerctl else None, "skipping tracks via playerctl", "" if playerctl else "not installed, so the pie menu's Music items do nothing")
-    from holotouch.launcher.camera import camera_command
+    from holotouch.launcher.camera import camera_command, photo_dir
 
     camera = camera_command(cfg)
-    _line(True if camera else None, "camera app for the two-handed peace sign", camera or "none found; set camera_command under [gesture]")
+    if not camera:
+        _line(True, "photos for the two-handed peace sign", f"taken by HoloTouch itself, into {photo_dir(cfg)}")
+    else:
+        there = shutil.which(camera.split()[0]) is not None
+        _line(True if there else None, "camera app for the two-handed peace sign", camera if there else f"{camera.split()[0]} is not installed")
     from holotouch.launcher.dictate import recorder_command, transcriber_command
 
     missing = [
