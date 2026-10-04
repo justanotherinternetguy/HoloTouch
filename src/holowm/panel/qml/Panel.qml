@@ -48,7 +48,7 @@ Rectangle {
     // The gesture in progress, as a word that fits a bubble.
     readonly property var gestureWords: ({
         "move": "Move", "click": "Click", "menu": "Menu", "close": "Close", "scroll": "Scroll",
-        "knob": "Dial", "switcher": "Switcher", "camera": "Camera", "dictate": "Dictate"
+        "knob": "Dial", "switcher": "Switcher", "camera": "Camera", "dictate": "Dictate", "spell": "Spell"
     })
     readonly property var gestures: [
         { demo: "move", live: "move", kind: "windows", pose: "Thumb + index", title: "Move a window",
@@ -77,6 +77,8 @@ Rectangle {
           how: "Hold both up until the ring completes to open the camera and take a photo." },
         { demo: "dictate", live: "dictate", kind: "system", pose: "Thumb and pinky out", title: "Dictate",
           how: "Hold up the letter Y and speak. Let go, and what you said is typed where the keyboard is." },
+        { demo: "spell", live: "spell", kind: "system", pose: "Thumb, index and pinky out", title: "App launcher",
+          how: "Hold up I love you, then fingerspell an app's name until it is the only one left, or a macro's letters: R, S opens Instagram Reels." },
         { demo: "clap", live: "", kind: "system", pose: "Clap twice", title: "New tab",
           how: "With a web browser in front, clap your hands twice to open a new tab in it." }
     ]

@@ -35,6 +35,7 @@ class Pose(Enum):
     AIM = "aim"  # pointing with the index finger, the thumb held out
     PRESS = "press"  # the same, with the thumb brought down onto the middle finger
     Y_SIGN = "y_sign"  # the letter Y of the manual alphabet: thumb and pinky out, the rest folded
+    ILY = "ily"  # the sign for "I love you": index and pinky up, the two fingers between them folded
 
 
 PINCHES = (Pose.PINCH_INDEX, Pose.PINCH_PINKY)
@@ -191,6 +192,9 @@ class PoseTracker:
             if self.pose is Pose.Y_SIGN or (f.thumb_tuck > cfg.pinch_exit and f.facing >= cfg.turned_facing):
                 return Pose.Y_SIGN
             return Pose.NEUTRAL
+        if self._signing_ily(f):
+            # Wherever the thumb is: held out it is "I love you", and tucked in, the horns.
+            return Pose.ILY if self.pose is Pose.ILY or f.facing >= cfg.turned_facing else Pose.NEUTRAL
 
         for i, s in enumerate(f.straight):
             limit = cfg.extend_exit if self._extended[i] else cfg.extend_enter
@@ -222,6 +226,15 @@ class PoseTracker:
         slack = _POINT_SLACK if self.pose is Pose.Y_SIGN else 0.0
         return f.straight[3] >= _Y_STRAIGHT - slack and max(f.straight[:3]) <= _Y_FOLDED + slack
 
+    def _signing_ily(self, f: HandFeatures) -> bool:
+        """Whether the index finger and the pinky are held out, the two fingers between them folded away."""
+        slack = _POINT_SLACK if self.pose is Pose.ILY else 0.0
+        return (
+            f.straight[0] >= _POINT_STRAIGHT - slack
+            and f.straight[3] >= _Y_STRAIGHT - slack
+            and max(f.straight[1:3]) <= _Y_FOLDED + slack
+        )
+
     def _hold_ms(self, candidate: Pose) -> float:
         cfg = self.cfg
         if self.pose in HOLDS:
@@ -234,6 +247,8 @@ class PoseTracker:
             return cfg.claw_on_ms
         if candidate is Pose.Y_SIGN:
             return cfg.y_on_ms
+        if candidate is Pose.ILY:
+            return cfg.ily_on_ms
         return cfg.pose_on_ms
 
     def update(self, f: HandFeatures, t: float, read: Pose | None = None) -> Pose:

@@ -135,6 +135,22 @@ def run_doctor(cfg: Config, measure: bool = True) -> int:
         if not there
     ]
     _line(None if missing else True, "dictation for the letter Y", "needs " + "; ".join(missing) if missing else "")
+    from holowm.config import MACROS_PATH
+    from holowm.core.letters import LetterModel, model_path
+    from holowm.launcher.apps import installed_apps
+    from holowm.launcher.macros import load_macros
+
+    try:
+        macros = load_macros()
+        LetterModel.load(model_path(cfg.spell.model))
+        spelt = ", ".join(macro.letters.upper() for macro in macros) or "none"
+        _line(True if macros or cfg.spell.apps else None, "macros to spell", f"{spelt} ({MACROS_PATH if MACROS_PATH.exists() else 'built in'})")
+    except Exception as exc:  # a macros.toml that will not load, or a file that is no letter model
+        _line(None, "macros to spell", str(exc))
+    if cfg.spell.apps:
+        apps = len(installed_apps())
+        opener = shutil.which("gtk-launch") is not None
+        _line(True if apps and opener else None, "apps to spell", f"{apps} installed" if opener else "gtk-launch, which opens them, is not installed")
     from holowm.tracker.landmarker import FACE_MODEL_PATH, MODEL_PATH
 
     for label, path in (("hand model", MODEL_PATH), ("face model", FACE_MODEL_PATH)):

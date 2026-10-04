@@ -10,6 +10,7 @@ import numpy as np
 from holowm.config import Config
 from holowm.core.engine import Engine
 from holowm.launcher.launch import Launcher
+from holowm.launcher.macros import Macro, Macros
 from holowm.launcher.menu import MenuItem
 from holowm.tracker.types import FACE_CHEEKS, FACE_CHIN, FACE_FOREHEAD, FACE_OVAL, FaceSample, FrameSample, HandSample
 from holowm.x11.fake import FakeBackend
@@ -30,6 +31,7 @@ _POSES = {
     "point": ((0, 1, 1, 1), 1),  # index only, the thumb tucked onto the middle finger: neutral
     "aim": ((0, 1, 1, 1), (-0.07, -0.02, -0.02)),  # index only, the thumb held out
     "y_sign": ((1, 1, 1, 0), (-0.07, -0.02, -0.02)),  # the letter Y: thumb and pinky out, the rest folded
+    "ily": ((0, 1, 1, 0), (-0.07, -0.02, -0.02)),  # "I love you": thumb, index and pinky out
     "press": ((0, 1, 1, 1), 1),  # a point again, which is a press when the hand was taking aim
     "claw": ((0.55, 0.55, 0.55, 0.55), (-0.07, -0.02, -0.02)),  # every finger bent, as if round a knob
     # How a fist pressed to the face tends to be read: fingers half hidden, thumb against the index.
@@ -147,6 +149,20 @@ class RecordingLauncher(Launcher):
         pass
 
 
+class RecordingMacros(Macros):
+    def __init__(self, backend, macros: list[Macro], apps: list[Macro] = ()):
+        super().__init__(backend, macros, apps)
+        self.ran: list[Macro] = []
+
+    def run(self, macro):
+        self.ran.append(macro)
+        super().run(macro)
+
+    @staticmethod
+    def _spawn(command, shell):
+        pass
+
+
 class Sim:
     """Feeds 30 Hz synthetic camera frames and 120 Hz ticks into an engine with a fake backend."""
 
@@ -154,11 +170,15 @@ class Sim:
     TICK_HZ = 120.0
     LATENCY = 0.03
 
-    def __init__(self, cfg: Config | None = None, menu: MenuItem | None = None, screen=(2880, 1800)):
+    def __init__(
+        self, cfg: Config | None = None, menu: MenuItem | None = None, screen=(2880, 1800), macros: list[Macro] | None = None,
+        apps: list[Macro] | None = None,
+    ):  # fmt: skip
         self.cfg = cfg or Config()
         self.backend = FakeBackend(screen)
         self.launcher = RecordingLauncher(self.backend, menu or MenuItem("Root", children=[]))
-        self.engine = Engine(self.cfg, self.backend, self.launcher)
+        self.macros = RecordingMacros(self.backend, macros or [], apps or [])
+        self.engine = Engine(self.cfg, self.backend, self.launcher, self.macros)
         self.screen = screen
         self.face: FaceSample | None = None  # the face the camera sees, sent with every frame
         self.t = 100.0

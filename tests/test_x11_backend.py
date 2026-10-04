@@ -425,7 +425,7 @@ def test_xtest_key_press_reaches_the_window_with_the_keyboard(backend, display):
     conn.core.SetInputFocus(xp.InputFocus.PointerRoot, probe, xp.Time.CurrentTime)
     conn.flush()
     wait_for(lambda: conn.core.GetInputFocus().reply().focus == probe)
-    for key in ("t", "space", "Return"):
+    for key in ("t", "space", "Return", "Escape"):
         backend.press_key(key)
     backend.press_key("\u20ac")  # not on the keyboard: nothing is pressed
     backend.flush()
@@ -435,14 +435,14 @@ def test_xtest_key_press_reaches_the_window_with_the_keyboard(backend, display):
         while (event := conn.poll_for_event()) is not None:
             if isinstance(event, xp.KeyPressEvent):
                 seen.append(event.detail)
-        return len(seen) >= 3
+        return len(seen) >= 4
 
     wait_for(collect)
     first = setup.min_keycode
     mapping = conn.core.GetKeyboardMapping(first, setup.max_keycode - first + 1).reply()
     typed = [mapping.keysyms[(code - first) * mapping.keysyms_per_keycode] for code in seen]
     conn.disconnect()
-    assert typed == [ord("t"), 0x20, 0xFF0D]
+    assert typed == [ord("t"), 0x20, 0xFF0D, 0xFF1B]
 
 
 def test_engine_drives_real_window(backend):
@@ -450,6 +450,7 @@ def test_engine_drives_real_window(backend):
     from holowm.config import Config
     from holowm.core.engine import Engine
     from holowm.launcher.launch import Launcher
+    from holowm.launcher.macros import Macros
     from holowm.launcher.menu import MenuItem
     from holowm.tracker.types import FrameSample
     from synth import make_hand
@@ -458,7 +459,7 @@ def test_engine_drives_real_window(backend):
     backend.move_resize(alpha.id, 100, 100, 320, 240)
     settle(backend, lambda: backend.get(alpha.id).x == 100)
     cfg = Config()
-    engine = Engine(cfg, backend, Launcher(backend, MenuItem("Root")))
+    engine = Engine(cfg, backend, Launcher(backend, MenuItem("Root")), Macros(backend, []))
     start = (200.0, 200.0)
 
     def script(elapsed):
@@ -492,10 +493,11 @@ def test_switcher_orders_by_use_and_goes_to_a_window_on_another_workspace(backen
     from holowm.core.engine import Engine
     from holowm.core.interactions import SwitcherInteraction
     from holowm.launcher.launch import Launcher
+    from holowm.launcher.macros import Macros
     from holowm.launcher.menu import MenuItem
 
     alpha, beta = by_title(backend, "alpha"), by_title(backend, "beta")
-    engine = Engine(Config(), backend, Launcher(backend, MenuItem("Root")))
+    engine = Engine(Config(), backend, Launcher(backend, MenuItem("Root")), Macros(backend, []))
 
     def focus(win):
         backend.activate(win.id)

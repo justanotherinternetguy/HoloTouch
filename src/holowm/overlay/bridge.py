@@ -63,6 +63,7 @@ class Bridge(QObject):
     menuItemsChanged = Signal()
     switcherChanged = Signal()
     switcherItemsChanged = Signal()
+    spellOptionsChanged = Signal()
     debugChanged = Signal()
     promptChanged = Signal()
 
@@ -81,6 +82,8 @@ class Bridge(QObject):
         self._switcher_items: list = []
         self._switcher_key: tuple | None = None
         self._switcher_serial = 0
+        self._spell_options: list = []
+        self._spell_seen: list = []
         self._debug: dict = {"visible": False}
         self._prompt: dict = {"visible": False}
 
@@ -133,6 +136,10 @@ class Bridge(QObject):
     @Property("QVariantList", notify=switcherItemsChanged)
     def switcherItems(self) -> list:
         return self._switcher_items
+
+    @Property("QVariantList", notify=spellOptionsChanged)
+    def spellOptions(self) -> list:
+        return self._spell_options
 
     @Property("QVariantMap", notify=debugChanged)
     def debug(self) -> dict:
@@ -193,6 +200,11 @@ class Bridge(QObject):
 
         self._apply_menu(state.menu)
         self._apply_switcher(state.switcher)
+        # The last rows are kept once spelling is over, so that the launcher fades out as it was.
+        if state.spell == "spelling" and state.spell_options != self._spell_seen:
+            self._spell_seen = state.spell_options
+            self._spell_options = [{**option, "hasIcon": _has_icon(option["icon"])} for option in state.spell_options]
+            self.spellOptionsChanged.emit()
 
         debug = debug or {"visible": False}
         if debug != self._debug:
@@ -231,6 +243,14 @@ class Bridge(QObject):
             "track": state.track,
             "key": state.key,
             "dictation": state.dictation,
+            "spell": state.spell,
+            "spellLetters": state.spell_letters,
+            "spellGuess": state.spell_guess,
+            "spellHolding": state.spell_holding,
+            "spellHold": state.spell_hold,
+            "spellMore": state.spell_more,
+            "spellOpening": state.spell_opening,
+            "spellName": state.spell_name,
             "paused": state.paused,
         }
 

@@ -16,6 +16,7 @@ from holowm.core.actions import WindowInfo
 from holowm.core.engine import Engine
 from holowm.core.hands import HandTracker
 from holowm.launcher.launch import Launcher
+from holowm.launcher.macros import Macro, Macros
 from holowm.launcher.menu import MenuItem
 from holowm.tracker.types import FrameSample
 from holowm.x11.fake import FakeBackend
@@ -42,11 +43,12 @@ EXPECTED: dict[str, tuple[set[str] | None, str | None]] = {
     "aim": ({"aim"}, None),
     "aim_press": ({"press"}, "click"),
     "y_sign": ({"y_sign"}, "dictate"),
+    "ily": ({"ily"}, "spell"),
     "point": ({"neutral", "open"}, None),  # the thumb tucked in from the start: only pointing
     "other": ({"neutral", "open"}, None),
     "chin": (None, "switcher"),  # read from the face and the hand together, not from a pose
 }
-POSES = ["open", "neutral", "pinch_index", "pinch_pinky", "fist", "two_finger", "claw", "aim", "press", "y_sign", "no hand"]
+POSES = ["open", "neutral", "pinch_index", "pinch_pinky", "fist", "two_finger", "claw", "aim", "press", "y_sign", "ily", "no hand"]
 _SHORT = {"pinch_index": "pinch", "pinch_pinky": "pinky", "two_finger": "two", "y_sign": "y", "no hand": "none"}
 _CARRIES_ON = {"two_down", "two_back", "claw_turn", "aim_press"}  # these are asked for as a continuation of the pose before them
 
@@ -109,7 +111,10 @@ def read_gestures(session: Session, cfg: Config) -> list[tuple[float, str | None
     """
     backend = FakeBackend(_SCREEN)
     # The pie menu is given nothing to offer, so a pinky pinch opens it and can launch nothing.
-    engine = Engine(cfg, backend, Launcher(backend, MenuItem("Root", children=[])))
+    # Likewise there is one macro to spell toward, so that spelling begins, and all it does is
+    # press a key on the stand-in backend.
+    macros = Macros(backend, [Macro("a", "stand-in", "key", "a")])
+    engine = Engine(cfg, backend, Launcher(backend, MenuItem("Root", children=[])), macros)
     out: list[tuple[float, str | None]] = []
     frames = session.frames
     if not frames:

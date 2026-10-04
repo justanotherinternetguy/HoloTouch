@@ -89,6 +89,17 @@ _CHECKS = {
         "It needs a recorder (parecord or arecord), xdotool to type, and Handy to turn speech into text, "
         "or another program named as dictate_command under [gesture].",
     ),
+    "macros to spell": (
+        "Macros to spell",
+        "Spelling has nothing to run",
+        "macros.toml in ~/.config/holowm, or the letter model named under [spell], cannot be used. "
+        "The line below says what is wrong with it.",
+    ),
+    "apps to spell": (
+        "Apps to spell by name",
+        "The launcher can't open apps",
+        "It opens them with gtk-launch, which comes with GTK 3. Macros can still be spelt.",
+    ),
     "camera": (
         "Camera can be opened",
         "No camera found",

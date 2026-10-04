@@ -99,9 +99,13 @@ def _cmd_collect(args) -> int:
     if labels.exists():
         raise ValueError(f"{labels} already exists; record under another name or remove it")
     frames_dir = _frames_dir(args.file, args.frames)
-    from holowm.tools.prompts import Prompter
+    from holowm.tools.prompts import LETTER_PREFIX, LETTER_SCRIPT, Prompter
 
-    prompter = Prompter(rounds=args.rounds, only=set(args.only.split(",")) if args.only else None)  # checked before anything starts
+    only = set(args.only.split(",")) if args.only else None
+    if args.letters and only is not None:  # a letter is asked for by itself: r, not letter_r
+        only = {LETTER_PREFIX + name.lower() if len(name) == 1 else name for name in only}
+    # Checked before anything starts.
+    prompter = Prompter(rounds=args.rounds, only=only, script=LETTER_SCRIPT if args.letters else None)
     from PySide6.QtWidgets import QApplication
 
     from holowm.overlay.app import App
@@ -132,6 +136,12 @@ def _cmd_train(args) -> int:
     from holowm.tools.train import run_train
 
     return run_train(args.files, load_config(args.config), args.out)
+
+
+def _cmd_train_letters(args) -> int:
+    from holowm.tools.letters import run_train_letters
+
+    return run_train_letters(args.files, load_config(args.config), args.out)
 
 
 def _cmd_doctor(args) -> int:
@@ -205,6 +215,11 @@ def main(argv: list[str] | None = None) -> int:
     collect.add_argument("--person", default=getpass.getuser(), help="whose hand this is (default: your login name)")
     collect.add_argument("--rounds", type=int, default=2, help="how many times to go through the poses (about a minute each)")
     collect.add_argument("--only", metavar="POSES", help="ask only for these poses, e.g. claw or pinch,fist (default: all of them)")
+    collect.add_argument(
+        "--letters",
+        action="store_true",
+        help="ask for the letters of the manual alphabet instead of the poses, for `train-letters` (about two minutes a round)",
+    )
     collect.add_argument("--frames", action="store_true", help="save every camera frame too, as `record --frames` does")
     collect.set_defaults(func=_cmd_collect)
 
@@ -217,6 +232,11 @@ def main(argv: list[str] | None = None) -> int:
     train.add_argument("files", type=Path, nargs="+", help="recordings made by `holowm collect`")
     train.add_argument("--out", type=Path, default=CONFIG_DIR / "pose_model.npz", help="where to save the model")
     train.set_defaults(func=_cmd_train)
+
+    letters = commands.add_parser("train-letters", help="train the model that reads spelt letters, on recordings made by `collect --letters`")
+    letters.add_argument("files", type=Path, nargs="+", help="recordings made by `holowm collect --letters`")
+    letters.add_argument("--out", type=Path, default=CONFIG_DIR / "letters.npz", help="where to save the model")
+    letters.set_defaults(func=_cmd_train_letters)
 
     doctor = commands.add_parser("doctor", help="check that this machine has what HoloWM needs")
     doctor.add_argument("--no-camera", action="store_true", help="skip the live tracking measurement")

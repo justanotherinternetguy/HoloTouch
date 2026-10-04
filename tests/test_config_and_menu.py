@@ -31,8 +31,8 @@ def test_config_overrides_and_rejects_unknown_keys(tmp_path):
 
 def test_example_menu_loads():
     root = load_menu(4, REPO / "contrib/menu.example.toml")
-    assert [i.name for i in root.children] == ["Terminal", "Browser", "Editor", "Windows", "Window", "Music"]
-    assert root.children[4].children[5].type == "send_to_workspace"
+    assert [i.name for i in root.children] == ["Terminal", "Browser", "Editor", "Windows", "Escape", "Window", "Music"]
+    assert root.children[5].children[5].type == "send_to_workspace"
 
 
 def test_default_menu_fits_one_ring():
@@ -62,6 +62,17 @@ def test_track_items_skip_a_track():
     assert backend.commands == [("skip_track", 1), ("skip_track", -1)]
     with pytest.raises(ValueError, match="next"):
         item_from_dict({"name": "Skip", "type": "track", "data": "forward"})
+
+
+def test_the_default_menu_has_the_escape_key_and_a_key_item_presses_its_key():
+    backend = FakeBackend()
+    launcher = Launcher(backend, load_menu(4, Path("/nonexistent/menu.toml")))
+    escape = next(item for item in launcher.build().children if item.name == "Escape")
+    launcher.activate(escape, None)
+    launcher.activate(item_from_dict({"name": "New tab", "type": "key", "data": "ctrl+t"}), None)
+    assert backend.commands == [("press_key", "Escape"), ("press_key", "ctrl+t")]
+    with pytest.raises(ValueError, match="a key item's data is the key"):
+        item_from_dict({"name": "Nothing", "type": "key"})
 
 
 def test_window_actions():

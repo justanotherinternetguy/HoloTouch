@@ -33,7 +33,8 @@ var paths = {
     "workspaces": "M5.5 8 L12.5 8 A2.5 2.5 0 0 1 15 10.5 L15 16.5 A2.5 2.5 0 0 1 12.5 19 L5.5 19 A2.5 2.5 0 0 1 3 16.5 L3 10.5 A2.5 2.5 0 0 1 5.5 8 Z M9 8 L9 7.5 A2.5 2.5 0 0 1 11.5 5 L18.5 5 A2.5 2.5 0 0 1 21 7.5 L21 13.5 A2.5 2.5 0 0 1 18.5 16 L15 16",
     "maximize": "M4 9 L4 4 L9 4 M20 15 L20 20 L15 20 M4 4 L10 10 M20 20 L14 14",
     "next": "M6 6 L14 12 L6 18 Z M17 6 L17 18",
-    "previous": "M18 6 L10 12 L18 18 Z M7 6 L7 18"
+    "previous": "M18 6 L10 12 L18 18 Z M7 6 L7 18",
+    "escape": "M10 5 L6.5 5 A2.5 2.5 0 0 0 4 7.5 L4 16.5 A2.5 2.5 0 0 0 6.5 19 L10 19 M10 12 L20 12 M16 8 L20 12 L16 16"
 }
 
 // The icon names the built-in menu uses, and the commonest ones a menu.toml would, by glyph.

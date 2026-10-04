@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 _KEY_PRESS, _KEY_RELEASE = 2, 3
 _BUTTON_PRESS, _BUTTON_RELEASE = 4, 5
-_NAMED_KEYS = {"space": 0x20, "Return": 0xFF0D}  # X keysyms; a Latin-1 character is its own
+_NAMED_KEYS = {"space": 0x20, "Return": 0xFF0D, "Escape": 0xFF1B}  # X keysyms; a Latin-1 character is its own
 _MODIFIERS = {"ctrl": 0xFFE3, "shift": 0xFFE1, "alt": 0xFFE9}  # the left one of each
 _WHEEL_UP, _WHEEL_DOWN = 4, 5
 _HI_RES_PER_NOTCH = 120

@@ -12,6 +12,7 @@ CACHE_DIR = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "ho
 RUNTIME_DIR = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp"))
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 MENU_PATH = CONFIG_DIR / "menu.toml"
+MACROS_PATH = CONFIG_DIR / "macros.toml"
 SOCKET_PATH = RUNTIME_DIR / "holowm.sock"
 # The control panel sends the output of the HoloWM it starts to LOG_PATH, and names that file to
 # it in this environment variable, so that a panel opened later knows where to read.
@@ -105,6 +106,9 @@ class PoseConfig:
     # The letter Y of the manual alphabet, thumb and pinky out and the rest folded, has to be held
     # this long before it counts: it opens the microphone.
     y_on_ms: float = 300.0
+    # So does the sign for "I love you", index and pinky up and the two fingers between them
+    # folded: it begins spelling.
+    ily_on_ms: float = 300.0
     # A hand must be tracked and open/relaxed this long before its gestures count.
     arm_ms: float = 150.0
     # A hand must point, with its thumb held out, this long before the thumb coming down presses
@@ -218,6 +222,30 @@ class GestureConfig:
 
 
 @dataclass
+class SpellConfig:
+    # The sign for "I love you" opens the launcher: the letters of the manual alphabet that the
+    # hand goes on to make are read, and the macro they spell is run (~/.config/holowm/macros.toml),
+    # or the app whose name they begin is opened.
+    apps: bool = True  # false: only the macros can be spelt, not the installed apps
+    # The model that reads a letter from the hand. Empty: ~/.config/holowm/letters.npz, if
+    # `holowm train-letters` has made one from your own hand, and otherwise the one HoloWM comes with.
+    model: str = ""
+    hold_ms: float = 400.0  # how long a letter has to be held before it counts
+    # Only the letters that carry on toward some macro or app are looked for. The hand has to look this
+    # much like one of them, as a share of one, even where it looks more like some other letter.
+    min_confidence: float = 0.35
+    # The same letter counts a second time only once the hand has been something else for this long.
+    repeat_ms: float = 250.0
+    # Where what has been spelt is a macro or an app's whole name, and the start of a longer one
+    # too, it is opened once no further letter has come for this long. So is an app whose name has
+    # only been begun, once no other begins the same way.
+    settle_ms: float = 1200.0
+    timeout_ms: float = 6000.0  # with no letter for this long, spelling is given up
+    # For this long after spelling the hand starts no gesture: its last letter is a fist as likely as not.
+    rest_ms: float = 700.0
+
+
+@dataclass
 class PieConfig:
     # Pixel sizes before ui.scale is applied. The dead zone and the stroke length follow Fly-Pie;
     # the petals are larger and further out than its items, and the seed is drawn to the dead zone.
@@ -262,6 +290,7 @@ class Config:
     filter: FilterConfig = field(default_factory=FilterConfig)
     pose: PoseConfig = field(default_factory=PoseConfig)
     gesture: GestureConfig = field(default_factory=GestureConfig)
+    spell: SpellConfig = field(default_factory=SpellConfig)
     pie: PieConfig = field(default_factory=PieConfig)
     switcher: SwitcherConfig = field(default_factory=SwitcherConfig)
     ui: UiConfig = field(default_factory=UiConfig)

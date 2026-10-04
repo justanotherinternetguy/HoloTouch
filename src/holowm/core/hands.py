@@ -49,6 +49,7 @@ class Hand:
         self.aimed = False  # has pointed, thumb out, for long enough that the thumb coming down is a press
         # Set once the current pinch/fist/two-finger pose has been acted on or rejected.
         self.consumed = False
+        self.quiet_until = 0.0  # until then every pose it makes is spent unacted on: it has just been spelling
         self.swipe_ready = True
         self.swipe_since = 0.0  # only motion after this time can count as a swipe
         self.x = self.y = self.ux = self.uy = 0.0

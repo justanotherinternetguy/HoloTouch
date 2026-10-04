@@ -1,0 +1,8 @@
+letters_public.npz holds the hand landmarks of ASLNow!'s fingerspelling dataset, by sid220:
+
+    https://huggingface.co/datasets/sid220/asl-now-fingerspelling
+    revision 9b3c96ae0adb7744a2c9fc72692842e6b3e25e33
+
+It is published under the MIT licence. The 1874 hands of the 24 letters that are not drawn in the
+air are kept, each from its wrist, with x and depth scaled by a 4:3 picture. letters.npz is the
+model trained on them. research/letters_public.py makes both files.

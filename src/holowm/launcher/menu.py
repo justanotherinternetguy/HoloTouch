@@ -19,6 +19,7 @@ ITEM_TYPES = (
     "running_windows",  # expands to the windows on the current workspace
     "activate_window",  # data: window id
     "track",  # data: next | previous, the way to skip in whatever is playing music
+    "key",  # data: a key pressed in whatever has the keyboard, as "Escape" or "ctrl+t"
 )
 
 
@@ -41,6 +42,8 @@ def item_from_dict(d: dict) -> MenuItem:
         raise ValueError(f"unknown menu item type {item_type!r} for {d.get('name')!r}")
     if item_type == "track" and d.get("data") not in ("next", "previous"):
         raise ValueError(f"menu item {d.get('name')!r}: a track item's data is \"next\" or \"previous\"")
+    if item_type == "key" and not (isinstance(d.get("data"), str) and d["data"]):
+        raise ValueError(f"menu item {d.get('name')!r}: a key item's data is the key, as \"Escape\" or \"ctrl+t\"")
     return MenuItem(
         name=str(d.get("name", "?")),
         type=item_type,

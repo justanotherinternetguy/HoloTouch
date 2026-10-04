@@ -42,9 +42,46 @@ SCRIPT = [
     [Step("two_up", "Two fingers up"), Step("two_back", "Now lean them back")],
     [Step("claw", "Make a claw, as if gripping a knob"), Step("claw_turn", "Now turn it, like a knob")],
     [Step("y_sign", "Thumb and pinky out, the other fingers folded: the letter Y")],
+    [Step("ily", "Thumb, index and pinky out, the two fingers between folded: I love you")],
     [Step("point", "Point up with one finger, thumb tucked in")],
     [Step("other", "Anything else: wave, scratch your head")],
     [Step("chin", "Rest your fist on your chin")],
+]
+
+
+# The manual alphabet, for `holowm collect --letters`: what `holowm train-letters` learns to read.
+# J and Z are left out: they are drawn in the air, and one frame of them is an I and a D.
+_LETTER_HINTS = {
+    "a": "a fist, thumb up against its side",
+    "b": "flat hand, fingers together, thumb across the palm",
+    "c": "hand curved into a C",
+    "d": "index up, the other fingers round to meet the thumb",
+    "e": "fingertips curled down onto the thumb",
+    "f": "thumb and index touching, the other three up",
+    "g": "index and thumb pointing sideways, level",
+    "h": "index and middle pointing sideways, together",
+    "i": "pinky up, the rest a fist",
+    "k": "index up, middle forward, thumb between them",
+    "l": "index up, thumb out sideways",
+    "m": "thumb under three fingers",
+    "n": "thumb under two fingers",
+    "o": "fingertips round to meet the thumb, an O",
+    "p": "a K, pointing down",
+    "q": "a G, pointing down",
+    "r": "index and middle crossed",
+    "s": "a fist, thumb across the front",
+    "t": "thumb tucked under the index",
+    "u": "index and middle up, together",
+    "v": "index and middle up, apart",
+    "w": "three fingers up, thumb on the pinky",
+    "x": "index hooked, the rest a fist",
+    "y": "thumb and pinky out",
+}
+LETTER_PREFIX = "letter_"  # a letter's label is this and the letter
+REST_LABEL = "rest"  # a hand spelling nothing, which the model learns to tell from the letters
+LETTER_SCRIPT = [[Step(LETTER_PREFIX + letter, f"{letter.upper()}: {hint}")] for letter, hint in _LETTER_HINTS.items()] + [
+    [Step(REST_LABEL, "Relax your hand")],
+    [Step(REST_LABEL, "Anything that is no letter: wave, reach, scratch")],
 ]
 
 
@@ -52,13 +89,18 @@ class Prompter:
     """Walks through the script in real time. Call step() every tick with the current time."""
 
     def __init__(
-        self, rounds: int = 2, seed: int = 0, ready_s: float = READY_S, hold_s: float = HOLD_S, only: set[str] | None = None
-    ):
-        """only limits the script to the poses with these labels, each with whatever follows on from it."""
+        self, rounds: int = 2, seed: int = 0, ready_s: float = READY_S, hold_s: float = HOLD_S, only: set[str] | None = None,
+        script: list[list[Step]] | None = None,
+    ):  # fmt: skip
+        """only limits the script to the poses with these labels, each with whatever follows on from it.
+
+        script is what to ask for, in place of the poses: LETTER_SCRIPT, for the manual alphabet.
+        """
         self.hold_s = hold_s
         self.plan: list[tuple[Step, float]] = []  # each step with its time to get ready
-        script = [group for group in SCRIPT if only is None or any(step.label in only for step in group)]
-        known = sorted({step.label for group in SCRIPT for step in group})
+        whole = SCRIPT if script is None else script
+        script = [group for group in whole if only is None or any(step.label in only for step in group)]
+        known = sorted({step.label for group in whole for step in group})
         if only is not None and not only <= set(known):
             raise ValueError(f"no such pose: {', '.join(sorted(only - set(known)))} (there are: {', '.join(known)})")
         order = random.Random(seed)

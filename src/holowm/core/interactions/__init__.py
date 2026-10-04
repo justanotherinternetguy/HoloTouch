@@ -7,6 +7,7 @@ from holowm.core.interactions.menu import MenuInteraction
 from holowm.core.interactions.move import MoveInteraction
 from holowm.core.interactions.knob import KnobInteraction
 from holowm.core.interactions.scroll import ScrollInteraction
+from holowm.core.interactions.spell import SpellInteraction
 from holowm.core.interactions.switcher import SwitcherInteraction
 
 __all__ = [
@@ -19,5 +20,6 @@ __all__ = [
     "MoveInteraction",
     "KnobInteraction",
     "ScrollInteraction",
+    "SpellInteraction",
     "SwitcherInteraction",
 ]

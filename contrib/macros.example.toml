@@ -1,0 +1,39 @@
+# Copy to ~/.config/holowm/macros.toml to replace the built-in macro (RS: Instagram Reels).
+#
+# Hold up the sign for "I love you" (thumb, index and pinky out) to open the launcher, then spell
+# the letters. The installed apps are there too, each spelt by its name, and need no macro.
+# Macro types: url, command, app, key, text.
+# J and Z cannot be used: they are drawn in the air, which is not read. A letter twice running
+# (LL) works, but the hand has to drop it in between; other letters are quicker.
+# A macro whose letters begin a longer one (T and TV), or an app's name, is run after a short
+# wait for more.
+
+[[macro]]
+letters = "rs"
+name = "Instagram Reels"
+type = "url"
+data = "https://www.instagram.com/reels/"
+
+[[macro]]
+letters = "yt"
+name = "YouTube"
+type = "url"
+data = "https://www.youtube.com/"
+
+[[macro]]
+letters = "t"
+name = "Terminal"
+type = "command"
+data = "exo-open --launch TerminalEmulator"
+
+[[macro]]
+letters = "f"
+name = "Fullscreen"
+type = "key"
+data = "f"
+
+[[macro]]
+letters = "hi"
+name = "Say hello"
+type = "text"
+data = "Hello there!"

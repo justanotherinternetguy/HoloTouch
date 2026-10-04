@@ -59,6 +59,20 @@ class OverlayState:
     # "listening" while the microphone is recorded, "writing" while that is turned into text, and
     # "failed" for a moment when it could not be; "" otherwise. The engine only ever says the first.
     dictation: str = ""
+    # "spelling" while the launcher is open and letters are read, and for a moment after: "done"
+    # when they opened something, "failed" when they were given up; "" otherwise.
+    spell: str = ""
+    spell_letters: str = ""  # the letters taken so far
+    spell_guess: str = ""  # the letter the hand looks like now, if it clearly looks like one
+    spell_holding: str = ""  # the letter being held that would carry on toward a macro or app, and how far
+    spell_hold: float = 0.0  # it has got toward being taken
+    # The first few macros and apps still within reach, and how many more there are. Each has its
+    # name and icon, its letters as code where they are not its name, how many characters have
+    # been spelt as done, and whether it is the one chosen: what is opened if no more letters come.
+    spell_options: list[dict] = field(default_factory=list)
+    spell_more: int = 0
+    spell_opening: float = 0.0  # how far the wait for more letters has got, before the chosen one is opened
+    spell_name: str = ""  # what was opened
     key: str = ""  # for a moment after a gesture presses a key: what that did, "Enter" or "New tab"
     track: int = 0  # for a moment after a track is skipped: 1 for the next one, -1 for the one before
     paused: bool = False

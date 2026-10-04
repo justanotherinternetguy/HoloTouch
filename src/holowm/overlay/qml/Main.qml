@@ -42,6 +42,7 @@ Item {
     WorkspaceHud { fx: bridge.fx; s: root.s }
     TrackHud { fx: bridge.fx; s: root.s }
     DictationHud { fx: bridge.fx; s: root.s }
+    SpellHud { fx: bridge.fx; options: bridge.spellOptions; s: root.s }
     KeyHud { fx: bridge.fx; s: root.s }
     DebugHud { info: bridge.debug; s: root.s }
     Prompt { prompt: bridge.prompt; s: root.s }

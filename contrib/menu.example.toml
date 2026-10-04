@@ -1,5 +1,5 @@
 # Copy to ~/.config/holowm/menu.toml to replace the built-in pie menu.
-# Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track.
+# Item types: command, app, submenu, window_action, workspace, send_to_workspace, running_windows, track, key.
 # Keep each level to 12 items or fewer.
 
 [[item]]
@@ -24,6 +24,14 @@ data = "org.xfce.mousepad.desktop"
 name = "Windows"
 icon = "view-grid"
 type = "running_windows"
+
+# A key is pressed in whatever has the keyboard: one character, space, Return or Escape,
+# with ctrl, shift or alt held if named first, as "ctrl+t".
+[[item]]
+name = "Escape"
+icon = "escape"
+type = "key"
+data = "Escape"
 
 [[item]]
 name = "Window"

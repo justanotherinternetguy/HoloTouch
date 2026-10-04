@@ -35,8 +35,10 @@ def default_menu(desktop_count: int) -> MenuItem:
         MenuItem("Terminal", "command", "exo-open --launch TerminalEmulator", "utilities-terminal"),
         MenuItem("Browser", "command", "exo-open --launch WebBrowser", "web-browser"),
         MenuItem("Files", "command", "exo-open --launch FileManager", "system-file-manager"),
+        MenuItem("Escape", "key", "Escape", "escape"),
     ]
-    # Entered from the root, the first of these lies to the right and the second to the left.
+    # Music is the fifth of eight, straight down. Entered from the root, the first of these lies
+    # to the right and the second to the left.
     music = MenuItem(
         "Music",
         icon="applications-multimedia",
@@ -89,6 +91,8 @@ class Launcher:
             backend.activate(int(item.data))
         elif item.type == "track":
             backend.skip_track(track_direction(item))
+        elif item.type == "key":
+            backend.press_key(str(item.data))
         elif target is None:
             log.info("menu item %r needs a target window", item.name)
         elif item.type == "send_to_workspace":

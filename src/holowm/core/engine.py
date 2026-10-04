@@ -11,6 +11,7 @@ from holowm.core.actions import ALL_DESKTOPS, WindowBackend, WindowInfo
 from holowm.core.claps import Claps, palm_gap
 from holowm.core.face import FaceTrack
 from holowm.core.hands import Hand, HandTracker
+from holowm.core.letters import LetterModel, model_path
 from holowm.core.interactions import (
     CameraInteraction,
     ClickInteraction,
@@ -21,11 +22,14 @@ from holowm.core.interactions import (
     MoveInteraction,
     ScrollInteraction,
     KnobInteraction,
+    SpellInteraction,
     SwitcherInteraction,
 )
 from holowm.core.overlay_state import FrameView, HandView, OverlayState
 from holowm.core.poses import Pose
+from holowm.launcher.apps import installed_apps
 from holowm.launcher.launch import Launcher
+from holowm.launcher.macros import Macro, Macros
 from holowm.tracker.types import FrameSample
 
 log = logging.getLogger(__name__)
@@ -45,10 +49,16 @@ _CLAP_REACH = 0.35  # metres; hands nearer each other than this are clapping, or
 
 
 class Engine:
-    def __init__(self, cfg: Config, backend: WindowBackend, launcher: Launcher | None = None):
+    def __init__(
+        self, cfg: Config, backend: WindowBackend, launcher: Launcher | None = None, macros: Macros | None = None
+    ):
         self.cfg = cfg
         self.backend = backend
         self.launcher = launcher or Launcher(backend)
+        if macros is None:
+            macros = Macros(backend, apps=installed_apps() if cfg.spell.apps else [])
+        self.macros = macros  # what the launcher opens: the macros, and the installed apps
+        self.letters = self._letter_model() if self.macros else None  # with nothing to spell, nothing is read
         self.screen = backend.screen_size()
         self.tracker = HandTracker(cfg, self.screen)
         self.face = FaceTrack(cfg)
@@ -67,6 +77,8 @@ class Engine:
         self._swipe_block_until = 0.0
         self._key = ""  # the key last pressed by a gesture, shown until _key_until
         self._key_until = 0.0
+        self._spelt = ("", "", "")  # how spelling last ended, what was spelt and what it opened, shown until _spelt_until
+        self._spelt_until = 0.0
         self._focus_order: list[int] = []  # window ids, most recently focused first
         self._chin_since: float | None = None  # when a hand not yet acted on came to the chin
         self._chin_held = False  # a hand is still resting there after being acted on
@@ -127,6 +139,24 @@ class Engine:
     def dictating(self) -> bool:
         """Whether the microphone is wanted: whoever runs the engine records it, and types what was said."""
         return isinstance(self.active, DictateInteraction)
+
+    # -- spelling --------------------------------------------------------------------------
+
+    def _letter_model(self) -> LetterModel:
+        path = model_path(self.cfg.spell.model)
+        try:
+            return LetterModel.load(path)
+        except Exception as exc:  # missing, or not a model: numpy says so in half a dozen ways
+            raise ValueError(f"[spell] model: cannot read {path} ({getattr(exc, 'strerror', None) or exc})") from None
+
+    def spelling_over(self, now: float, spelt: str, macro: Macro | None) -> None:
+        """Run the macro that was spelt, or open the app, if one was, and say for a moment how it ended."""
+        if macro is not None:
+            self.macros.run(macro)
+        elif not spelt:
+            return  # begun and let go of with nothing spelt: there is nothing to say
+        self._spelt = ("done" if macro is not None else "failed", spelt.upper(), macro.name if macro is not None else "")
+        self._spelt_until = now + self.cfg.ui.hud_ms / 1000.0
 
     # -- clicking --------------------------------------------------------------------------
 
@@ -261,6 +291,9 @@ class Engine:
         return self.overlay
 
     def _try_begin(self, now: float) -> None:
+        for hand in self.tracker.hands.values():
+            if now < hand.quiet_until:
+                hand.consumed = True
         both = self._peace_hands()
         if both is not None and not all(hand.consumed for hand in both):
             for hand in both:
@@ -296,6 +329,10 @@ class Engine:
             elif hand.pose is Pose.Y_SIGN:
                 hand.consumed = True
                 self.active = DictateInteraction(self, hand, now)
+            elif hand.pose is Pose.ILY:
+                hand.consumed = True
+                if self.macros:
+                    self.active = SpellInteraction(self, hand, now)
             if self.active is not None:
                 return
 
@@ -378,6 +415,8 @@ class Engine:
             overlay.track = self._track
         if now < self._key_until:
             overlay.key = self._key
+        if not overlay.spell and now < self._spelt_until:
+            overlay.spell, overlay.spell_letters, overlay.spell_name = self._spelt
         if now - self._click_time < _CLICK_SHOWN_S:
             overlay.click, (overlay.click_x, overlay.click_y) = True, self._click
         self.overlay = overlay

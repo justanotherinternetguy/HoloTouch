@@ -45,7 +45,7 @@ Rectangle {
         sourceComponent: ({
             "grab": grab, "move": move, "resize": resize, "flick": flick, "edge": edge, "click": click,
             "menu": menu, "close": close, "scroll": scroll, "knob": knob, "swipe": swipe,
-            "switcher": switcher, "camera": camera, "dictate": dictate, "clap": clap
+            "switcher": switcher, "camera": camera, "dictate": dictate, "spell": spell, "clap": clap
         })[root.gesture] || palm
     }
 
@@ -380,6 +380,48 @@ Rectangle {
                         }
                     }
                     Rectangle { width: 2.5; height: 16; y: -5; color: theme.coral }
+                }
+            }
+        }
+    }
+    Component {
+        id: spell
+        Item {
+            id: spelt
+            // The sign is held up, and the letters come one after the other.
+            property real taken: 2
+            SequentialAnimation on taken {
+                running: root.playing; loops: Animation.Infinite
+                PropertyAction { value: 0 }
+                PauseAnimation { duration: 700 }
+                PropertyAction { value: 1 }
+                PauseAnimation { duration: 700 }
+                PropertyAction { value: 2 }
+                PauseAnimation { duration: 1400 }
+            }
+            HandFigure { x: 4; y: 22; size: 62; pose: "ily" }
+            Row {
+                x: 82; y: 36; spacing: 6
+                Repeater {
+                    model: ["R", "S"]
+                    Rectangle {
+                        required property string modelData
+                        required property int index
+                        readonly property bool taken: spelt.taken > index
+                        width: 32; height: 34; radius: 8
+                        color: taken ? (spelt.taken >= 2 ? theme.mint : theme.paper) : "transparent"
+                        border.color: theme.ink
+                        border.width: 2.5
+                        Text {
+                            anchors.centerIn: parent
+                            visible: parent.taken
+                            text: parent.modelData
+                            color: theme.ink
+                            font.family: theme.display
+                            font.pixelSize: 19
+                            font.weight: Font.DemiBold
+                        }
+                    }
                 }
             }
         }

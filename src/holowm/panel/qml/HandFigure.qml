@@ -5,7 +5,7 @@ import QtQuick.Shapes
 // the right hand and sky the left, as on the overlay; fingertips that touch get a cream dot.
 Item {
     id: root
-    property string pose: "open"  // open | index | aim | press | pinky | fist | two | claw | peace | y
+    property string pose: "open"  // open | index | aim | press | pinky | fist | two | claw | peace | y | ily
     property string side: "right"
     property real size: 64
     property bool plain: false  // cream instead of the hand's colour, for use on a coloured ground
@@ -21,7 +21,8 @@ Item {
         "two": "M37 52 L31 18 M46 52 L49 13 M55 52 L55 42 M63 54 L63 45 M35 68 L47 61",
         "claw": "M37 52 L30 33 M46 52 L45 28 M55 52 L60 32 M63 54 L72 41 M35 68 L19 58",
         "peace": "M37 52 L27 20 M46 52 L53 15 M55 52 L55 42 M63 54 L63 45 M35 68 L47 61",
-        "y": "M37 52 L37 42 M46 52 L46 40 M55 52 L55 42 M63 54 L76 32 M35 68 L15 50"
+        "y": "M37 52 L37 42 M46 52 L46 40 M55 52 L55 42 M63 54 L76 32 M35 68 L15 50",
+        "ily": "M37 52 L33 18 M46 52 L46 40 M55 52 L55 42 M63 54 L76 32 M35 68 L15 50"
     })
     readonly property var touches: ({ "index": [20, 40], "press": [46, 50], "pinky": [45, 45] })
     readonly property var touch: touches[pose] || null

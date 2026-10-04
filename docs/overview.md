@@ -27,12 +27,26 @@ whole screen, so the hand never has to reach the edge of the picture.
 | Open palm, swept to the right | Enter key | A fast sweep to the right presses Enter in whatever has the keyboard. |
 | Fist touched to the chin | Window switcher | Every window is laid out as a card with a picture of it. Point at one and pinch to go to it. |
 | Letter Y: thumb and pinky out, the rest folded | Dictate | Hold the sign up and speak; a note says it is listening. Let go, and what you said is typed into whatever has the keyboard. |
+| "I love you": thumb, index and pinky out | App launcher | Hold the sign up until the launcher appears, then fingerspell an app's name until it is the only one left, or a macro's letters: R, then S, opens Instagram Reels in the browser. |
 | Both hands clapped twice | New tab | Only when a web browser has the keyboard: it is sent Ctrl+T. The claps are seen, not heard. |
 | Peace sign with both hands | Camera | Held for 3 s, it opens the camera app and takes a photo. Tracking pauses until the app is closed, since only one program can use the webcam. |
 
 The pie menu starts apps (terminal, browser, files), skips music tracks, lists the running windows,
-maximizes, minimizes, tiles or closes the window under the hand, and switches workspaces. Its
+maximizes, minimizes, tiles or closes the window under the hand, switches workspaces, and presses
+the Escape key in whatever has the keyboard. Its
 contents can be replaced with `~/.config/holowm/menu.toml` (see `contrib/menu.example.toml`).
+
+The launcher opens every app that the applications menu lists, each spelt by its name with the
+spaces and digits left out. It lists the apps the letters so far may yet spell, and once only one
+is left it opens after a short wait: F, I, R, E, F is enough for Firefox where Firewall is
+installed too. Making the sign again takes it all back. J and Z are drawn in the air, which is
+not read, so in a name each is spelt by the hand that draws it, held still: that of I for J, and
+that of D for Z. `apps = false` under `[spell]` leaves the apps out.
+
+It runs macros as well, listed in `~/.config/holowm/macros.toml` (see
+`contrib/macros.example.toml`): each has its letters, a name, and what it does, which is to open
+an address, run a command, start an app, press a key or type some text. Without that file there
+is one, RS for Instagram Reels. A macro has to be spelt in full, and J and Z cannot be used in one.
 
 ## How it works
 
@@ -72,10 +86,18 @@ refreshes faster, so the position is predicted forward between samples from the 
 **Poses** (`poses.py`). From the landmarks HoloWM measures a few things in palm lengths: how far
 the thumb tip is from each fingertip, how curled and how straight each finger is, how squarely the
 palm faces the camera, how far the fingers tilt, and how near the thumb tip is to the middle
-finger. Hand-written rules turn these into one of ten poses: neutral, open, index pinch, pinky
+finger. Hand-written rules turn these into one of eleven poses: neutral, open, index pinch, pinky
 pinch, fist, two fingers, claw, aim (pointing with the thumb held out), press (the thumb
-brought down from there) and the letter Y. Each pose has separate thresholds for entering and leaving, and must
+brought down from there), the letter Y and the sign for "I love you". Each pose has separate thresholds for entering and leaving, and must
 persist for a short time before it counts, so a pose does not flicker.
+
+**Letters** (`letters.py`). The letters of the manual alphabet are too many and too alike for
+rules, so a small network reads them: one hidden layer, fed where each of the hand's joints lies
+from the wrist and how far apart they are, in palm lengths. It is asked only while spelling. Many
+letters are also gestures (R holds up two fingers, which scroll; S is a fist, which closes a
+window), which is why the launcher has a sign that opens it, and nothing else starts until it closes.
+The model that comes with HoloWM was trained on about 1900 public hands of 24 letters;
+`holowm train-letters` adds your own to them.
 
 **Claps** (`claps.py`). A clap is the two palms 14 cm apart or more and then together, within a
 third of a second. Hands that meet are often read as one hand or as none, so palms that vanish on
@@ -85,8 +107,8 @@ their way together count as having met. Two claps within 0.9 s are acted on.
 near the chin a hand is, and whether it is level with the face or held out in front of it.
 
 **The engine** (`engine.py`, `interactions/`). On every tick the engine looks at each hand's pose
-and starts the matching interaction: move, click, pie menu, close, scroll, knob, dictation, window
-switcher or camera. One interaction runs at a time and owns its hands until it ends.
+and starts the matching interaction: move, click, pie menu, close, scroll, knob, dictation,
+spelling, window switcher or camera. One interaction runs at a time and owns its hands until it ends.
 
 Several guards keep misread hands from doing damage:
 
@@ -96,6 +118,13 @@ Several guards keep misread hands from doing damage:
 - The thumb only clicks from a hand that has taken aim, thumb out, for 200 ms. A hand that comes
   to point with its thumb already tucked in is only pointing, and clicks nothing.
 - The letter Y has to be held for 300 ms, facing the camera, before the microphone is opened.
+- While spelling, only the letters that carry on toward some macro or app are looked for, and
+  each has to be held for 400 ms. A hand that looks more like another letter still counts if it
+  looks a good deal like the one wanted: R and U are told apart by one crossed finger.
+- An app whose name has only been begun is not opened at once, but after 1.2 s with no further
+  letter, which leaves time to take it back.
+- For 0.7 s after spelling, the hand that spelt starts nothing: its last letter is a fist as
+  likely as not.
 - Only application windows can be changed, never the desktop or a panel, and fullscreen windows
   are not grabbed.
 
@@ -116,6 +145,15 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
   Dictated text is typed with `xdotool`.
 - **`FakeBackend`** holds windows in memory only. Tests use it, and so does practice mode
   (`--dry-run`), where gestures act on two stand-in windows.
+
+**Macros** (`launcher/macros.py`) are read from `macros.toml`, and the one that was spelt is run:
+an address is handed to `xdg-open`, a command to the shell, an app to `gtk-launch`, and a key or
+text to the backend.
+
+**Apps** (`launcher/apps.py`) are found when HoloWM starts, from the desktop files in the XDG
+data directories: those the applications menu would list on this desktop, and whose program is
+installed. Each is opened with `gtk-launch`. Of two that are spelt alike only the first is kept,
+and a macro comes before an app.
 
 **Dictation** (`launcher/dictate.py`) is done by whoever runs the engine, which only says when the
 letter Y is held. While it is, the microphone is recorded by `parecord` (or `arecord`) to a file
@@ -145,6 +183,10 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
 - a ring for closing a window, as wide as the fist may drift, and one for the camera sign
 - the volume or brightness dial, with its number; a click pulse; a bar at the screen edge that
   fills while a held window waits to cross to the next workspace
+- the launcher: the letters taken so far, the one the hand is making as the model reads it, a
+  tile that fills as a letter is held, and under them the first six apps and macros still within
+  reach, each with its icon or its letters and with what has been spelt of it picked out. The
+  one about to be opened fills up as it waits. Then a note of what was opened
 - brief notes for the workspace switched to, the track skipped, the Enter key pressed and the tab opened, and one that says the
   microphone is listening, then that what was said is being written
 - one instruction at a time, for a prompted recording or for practice mode
@@ -192,13 +234,15 @@ the panel leaves HoloWM running, and a HoloWM started from a terminal is picked 
 | `holowm doctor [--no-camera]` | Check that the machine has what HoloWM needs, and measure the tracking rate. |
 | `holowm record FILE` | Record hand tracking to a JSONL file. |
 | `holowm collect FILE` | Record while prompting one pose after another, so the recording comes labelled. |
+| `holowm collect FILE --letters` | The same, asking for the letters of the manual alphabet and a resting hand. |
+| `holowm train-letters FILES…` | Train the model that reads spelt letters on those recordings, added to the public hands. |
 | `holowm score FILES…` | Measure how well the poses and gestures in labelled recordings are read. |
 | `holowm train FILES…` | Train the optional pose model on labelled recordings. |
 
 ## Tuning and measuring
 
 Everything adjustable lives in `~/.config/holowm/config.toml`, in sections for the camera, tracker,
-screen mapping, filters, poses, gestures, pie menu, window switcher and overlay. Every key has a
+screen mapping, filters, poses, gestures, spelling, pie menu, window switcher and overlay. Every key has a
 default (`src/holowm/config.py`), and an unknown key is rejected with its name.
 
 Gesture recognition is tuned against recordings rather than by feel:
@@ -207,6 +251,15 @@ Gesture recognition is tuned against recordings rather than by feel:
 - `holowm score` replays those recordings through the same code the live program uses and reports,
   for each pose asked for, what it was read as and which gesture it set off.
 - `holowm run --replay` plays any recording back through the full engine and overlay.
+
+The model that reads letters is made and measured the same way. `research/letters_public.py`
+trains the one HoloWM comes with on ASLNow!'s public landmarks (MIT licence), and tests it on
+hands held out of training: it reads 98% of them right, though with the same people on both
+sides of the split, so expect less on a new hand. `holowm collect FILE --letters` records your
+own, about two minutes a round, and `holowm train-letters FILE` adds them to the public ones,
+reports how the result reads holds it was not trained on, and saves it to
+`~/.config/holowm/letters.npz`, which is then used. Your own recording also shows the model a
+resting hand, which the public data has none of: without it every hand looks like some letter.
 
 `research/label_teacher.py` labels saved camera frames with WiLoR, a slow but more accurate hand
 model, to measure where MediaPipe goes wrong when fingers are hidden.
@@ -220,7 +273,7 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
 `playerctl` (skipping tracks), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
-Cheese (the camera gesture), and `parecord`, `xdotool` and Handy (dictation). `holowm doctor` reports which of these are present.
+Cheese (the camera gesture), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), and `xdg-open` (macros that open an address). `holowm doctor` reports which of these are present.
 
 ## Where things are
 
@@ -229,12 +282,12 @@ Cheese (the camera gesture), and `parecord`, `xdotool` and Handy (dictation). `h
 | `src/holowm/cli.py` | The `holowm` command and its subcommands |
 | `src/holowm/config.py` | Every setting and its default |
 | `src/holowm/tracker/` | Camera capture, MediaPipe, the tracker process, recordings and replay |
-| `src/holowm/core/` | Hand tracks, filters, poses, face, the engine and its interactions |
-| `src/holowm/launcher/` | The pie menu's model and actions, the camera app, and dictation |
+| `src/holowm/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
+| `src/holowm/launcher/` | The pie menu's model and actions, the macros, the installed apps, the camera app, and dictation |
 | `src/holowm/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
 | `src/holowm/overlay/` | The overlay process, its bridge to QML, and the QML components |
 | `src/holowm/panel/` | The control panel |
 | `src/holowm/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
-| `src/holowm/tools/` | `doctor`, `collect`, `score` and `train` |
-| `tests/` | 313 tests, run against synthetic hands, recorded landmarks and the fake backend |
-| `research/`, `docs/` | The occlusion research script and plan |
+| `src/holowm/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
+| `tests/` | 352 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |
