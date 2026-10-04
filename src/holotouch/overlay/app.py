@@ -24,6 +24,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
 
 from holotouch.config import LOG_ENV, SOCKET_PATH, Config  # noqa: E402
 from holotouch.core.engine import Engine  # noqa: E402
+from holotouch.core.hands import image_scale  # noqa: E402
 from holotouch.launcher.camera import Shutter, camera_command  # noqa: E402
 from holotouch.launcher.dictate import Dictation  # noqa: E402
 from holotouch.overlay.bridge import Bridge  # noqa: E402
@@ -314,6 +315,7 @@ class App:
 
     def _debug_info(self) -> dict:
         engine = self.engine
+        aspect = self.cfg.camera.width / self.cfg.camera.height
         lines = [
             f"tracker {self._tracker_fps():4.0f} fps   capture-to-tick {self._latency_ms:5.1f} ms",
             f"state   {'PAUSED' if engine.paused else type(engine.active).__name__ if engine.active else 'idle'}",
@@ -325,8 +327,13 @@ class App:
             lines.append(
                 f"hand {hand.id} {hand.handedness[:1]} {hand.pose.value:<12} "
                 f"i={f.pinch_index:.2f} p={f.pinch_pinky:.2f} th={f.thumb_tuck:.2f} t={f.finger_tilt:+4.0f} "
-                f"{'armed' if hand.armed else '-'}"
+                f"s={hand.image_scale:.2f} {'armed' if hand.armed else '-'}"
             )
+        # The hands left out as being in the background, each with its size (s, as above), which
+        # is under tracker.min_hand_scale or under tracker.behind_face of the face's.
+        ignored = engine.tracker.ignored
+        if ignored:
+            lines.append("ignored " + "   ".join(f"s={image_scale(h, aspect):.2f}" for h in ignored))
         face = engine.face
         seen = face.visible(time.monotonic())
         if seen:
@@ -337,12 +344,12 @@ class App:
         else:
             lines.append("face    not seen")
         m = self.cfg.mapping
-        aspect = self.cfg.camera.width / self.cfg.camera.height
         return {
             "visible": True,
             "text": "\n".join(lines),
             "box": [m.box_x, m.box_y, m.box_w, m.box_h],
             "hands": [h.landmarks[:, :2].round(3).tolist() for h in engine.tracker.hands.values()],
+            "ignored": [h.image[:, :2].round(3).tolist() for h in ignored],
             "face": face.outline.round(3).tolist() if seen else [],
             # The chin, and how far from it a fist may be, as fractions of the frame's width and height.
             "chin": [float(face.chin[0]) / aspect, float(face.chin[1]), face.size * self.cfg.gesture.chin_reach] if seen else [],

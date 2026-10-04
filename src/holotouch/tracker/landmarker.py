@@ -63,7 +63,8 @@ class Landmarker:
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(ensure_model())),
             running_mode=RunningMode.LIVE_STREAM,
-            num_hands=cfg.num_hands,
+            # More than are followed, so that the core can pick the nearest: see TrackerConfig.
+            num_hands=max(cfg.candidate_hands, cfg.num_hands),
             min_hand_detection_confidence=cfg.detection_confidence,
             min_hand_presence_confidence=cfg.presence_confidence,
             min_tracking_confidence=cfg.tracking_confidence,

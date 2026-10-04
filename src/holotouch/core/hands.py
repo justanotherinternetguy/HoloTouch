@@ -18,11 +18,27 @@ from holotouch.tracker.types import FrameSample, HandSample
 _MATCH_GATE = 0.30  # max palm travel between frames, in frame widths
 _HANDEDNESS_PENALTY = 0.15
 _HISTORY_S = 0.6
+# A hand already followed is kept down to this share of the size a new one has to be: one near
+# the limit would otherwise come and go.
+_KEEP = 0.85
+# With every place taken, a new hand takes the place of the smallest one followed only if that
+# one is under this share of its size: clearly further off, not merely held a little further back.
+_YIELD = 0.7
 
 
 def _spread(points: np.ndarray) -> float:
     """Root mean square distance of the points from their centre."""
     return float(np.sqrt(((points - points.mean(axis=0)) ** 2).sum(axis=1).mean()))
+
+
+def _frame_points(sample: HandSample, aspect: float) -> np.ndarray:
+    """The hand as it lies in the picture, in frame heights."""
+    return sample.image[:, :2].astype(np.float64) * (aspect, 1.0)
+
+
+def image_scale(sample: HandSample, aspect: float) -> float:
+    """How large the hand appears in the picture, in frame heights per metre: the nearer the camera, the larger."""
+    return _spread(_frame_points(sample, aspect)) / max(_spread(sample.world[:, :2]), 1e-4)
 
 
 class Hand:
@@ -71,10 +87,8 @@ class Hand:
         # the motion track filters it itself.
         self.features = extract_features(replace(sample, world=self._fingers(sample.world, t)), self._aspect)
         self.landmarks = sample.image
-        # The hand as it lies in the picture, in frame heights, and how large it appears there in
-        # frame heights per metre. The nearer the camera it is, the larger it appears.
-        self.frame_points = sample.image[:, :2].astype(np.float64) * (self._aspect, 1.0)
-        self.image_scale = _spread(self.frame_points) / max(_spread(sample.world[:, :2]), 1e-4)
+        self.frame_points = _frame_points(sample, self._aspect)
+        self.image_scale = image_scale(sample, self._aspect)
         self._palm_raw = self.features.palm
         self._motion.update(self._to_screen_units(self.features.palm), t)
         self.last_seen = t
@@ -146,6 +160,9 @@ class HandTracker:
         self.cfg = cfg
         self.screen = screen
         self.hands: dict[int, Hand] = {}
+        self.ignored: list[HandSample] = []  # the hands in the last frame that are not followed, for the debug view
+        self._last_frame = 0.0
+        self._aspect = cfg.camera.width / cfg.camera.height
         self._next_id = 1
         self._model = None
         if cfg.pose.model:
@@ -157,9 +174,16 @@ class HandTracker:
     def get(self, hand_id: int | None) -> Hand | None:
         return self.hands.get(hand_id) if hand_id is not None else None
 
-    def update(self, frame: FrameSample) -> None:
+    def update(self, frame: FrameSample, face_scale: float = 0.0) -> None:
+        """face_scale is the scale of the picture at the user's face (FaceTrack.scale), or 0 with no face in view."""
         t = frame.t_capture
-        detections = frame.hands[: self.cfg.tracker.num_hands]
+        cfg = self.cfg.tracker
+        # Hands in the background are left out before any is matched, so that a hand being
+        # followed is never carried on by someone else's behind it.
+        smallest = max(cfg.min_hand_scale, cfg.behind_face * face_scale)
+        sized = [(image_scale(d, self._aspect), d) for d in frame.hands]
+        sized = [(size, d) for size, d in sized if size >= smallest * _KEEP]
+        sizes, detections = [size for size, _ in sized], [d for _, d in sized]
         tracks = list(self.hands.values())
         palms = [extract_features(d).palm for d in detections]
 
@@ -196,15 +220,26 @@ class HandTracker:
         for track, k in best_pairs:
             track.update(detections[k], t)
             matched.add(k)
-        for k, detection in enumerate(detections):
-            if k not in matched and len(self.hands) < self.cfg.tracker.num_hands:
-                hand = Hand(self._next_id, self.cfg, self.screen, detection, t, self._model)
-                self.hands[hand.id] = hand
-                self._next_id += 1
+        # The hands that are new get the places left, the nearest first.
+        new = [k for k in range(len(detections)) if k not in matched and sizes[k] >= smallest]
+        for k in sorted(new, key=lambda k: -sizes[k]):
+            if len(self.hands) >= cfg.num_hands:
+                furthest = min(self.hands.values(), key=lambda h: h.image_scale)
+                if furthest.image_scale >= sizes[k] * _YIELD:
+                    break
+                del self.hands[furthest.id]
+            hand = Hand(self._next_id, self.cfg, self.screen, detections[k], t, self._model)
+            self.hands[hand.id] = hand
+            self._next_id += 1
+            matched.add(k)
+        self.ignored = [d for d in frame.hands if all(d is not detections[k] for k in matched)]
+        self._last_frame = t
 
     def step(self, now: float) -> None:
         grace = self.cfg.filter.lost_grace_ms / 1000.0
         for hand_id in [i for i, h in self.hands.items() if now - h.last_seen > grace]:
             del self.hands[hand_id]
+        if now - self._last_frame > grace:
+            self.ignored = []
         for hand in self.hands.values():
             hand.step(now)

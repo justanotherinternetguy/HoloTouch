@@ -35,6 +35,19 @@ class CameraConfig:
 @dataclass
 class TrackerConfig:
     num_hands: int = 2
+    # The tracker looks for this many hands, of which the core follows the num_hands nearest the
+    # camera. With no more than num_hands, two hands in the background that are found first keep
+    # the user's own from being found at all. Looking for more than are in view costs a detection
+    # pass on every frame, about 12 ms.
+    candidate_hands: int = 4
+    # A hand in the background is someone else's, and is not followed. How far off a hand is shows
+    # in how large it is in the picture, in frame heights per metre of hand (Hand.image_scale):
+    # held up at a laptop it measures 1.4 to 3, and a room's length away under 0.8. 0: no limit.
+    min_hand_scale: float = 0.8
+    # With the user's face in view, a hand is also held against it: one that measures less than
+    # this share of the face's scale is well behind the user. The user's own hands measure 0.9 to
+    # 2 of it, and never under 0.76; those of someone twice as far away, 0.55 to 0.7. 0: no limit.
+    behind_face: float = 0.75
     detection_confidence: float = 0.5
     presence_confidence: float = 0.5
     tracking_confidence: float = 0.5

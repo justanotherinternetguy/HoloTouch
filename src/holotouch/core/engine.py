@@ -92,10 +92,11 @@ class Engine:
 
     def on_frame(self, frame: FrameSample) -> None:
         if not self.paused:
-            self.tracker.update(frame)
-            self.claps.update(list(self.tracker.hands.values()), frame.t_capture)
+            # The face first: how far off it is tells which hands are behind the user.
             if frame.face is not None:
                 self.face.update(frame.face, frame.t_capture)
+            self.tracker.update(frame, self.face.scale if self.face.visible(frame.t_capture) else 0.0)
+            self.claps.update(list(self.tracker.hands.values()), frame.t_capture)
 
     def set_paused(self, paused: bool) -> None:
         if paused == self.paused:

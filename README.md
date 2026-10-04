@@ -34,6 +34,10 @@ HoloTouch is designed to be...
 
 HoloTouch is the **closest** you will get to tony stark tossing windows around.
 
+# inspiration
+
+JARVIS!!!!
+
 # technical details
 
 # applications + future use

@@ -70,10 +70,12 @@ Item {
                         ctx.arc(chin[0] * width, chin[1] * height, chin[2] * height, 0, 2 * Math.PI)
                         ctx.stroke()
                     }
-                    var hands = root.info.hands || []
+                    // The hands left out as being in the background are drawn faint, after the ones followed.
+                    var followed = root.info.hands || []
+                    var hands = followed.concat(root.info.ignored || [])
                     for (var h = 0; h < hands.length; h++) {
                         var points = hands[h]
-                        ctx.strokeStyle = theme.cream
+                        ctx.strokeStyle = h < followed.length ? theme.cream : theme.inkSoft
                         ctx.lineWidth = 1.5
                         ctx.beginPath()
                         for (var b = 0; b < root.bones.length; b++) {

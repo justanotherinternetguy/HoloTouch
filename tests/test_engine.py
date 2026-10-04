@@ -1043,6 +1043,20 @@ def on_chin(pose="fist", nearness=1.0):
     return (pose, *AT_CHIN, "Right", 0.0, nearness)
 
 
+def test_a_hand_in_the_background_starts_nothing(sim):
+    sim.face = make_face(sim.cfg, CHIN)
+
+    def pinch(nearness):
+        sim.hold(0.4, ("open", *CENTRE, "Right", 0.0, nearness))
+        sim.hold(0.4, ("pinch_index", *CENTRE, "Right", 0.0, nearness))
+
+    pinch(0.5)  # twice as far from the camera as the face
+    assert not sim.engine.overlay.hands and not sim.backend.commands
+    sim.run(0.5)
+    pinch(1.0)
+    assert sim.commands("activate") == [("activate", 1)]
+
+
 def open_switcher(sim):
     """Touch a fist to the chin, then take the hand away and let it rest, open, above the panel."""
     sim.face = make_face(sim.cfg, CHIN)
