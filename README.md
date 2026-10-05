@@ -36,7 +36,7 @@ HoloTouch is designed to be...
 - **intuitive** with easy gestures for human hands
 - **extensible** with custom gesture creation and fine-tuning
 - **3D space-first** by using all the space around the user and using facial features to locate gestures
-- **quick**, **responsive,**, and **consistent**, making it an **actually viable replacement** for keyboard-mouse control
+- **quick**, **responsive**, and **consistent**, making it an **actually viable replacement** for keyboard-mouse control
 
 HoloTouch is the **closest** you will get to tony stark tossing windows around.
 
