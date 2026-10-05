@@ -1,3 +1,5 @@
+# gnome-wayland implemented
+
 ### winner of big red hacks 2026
 
 # HoloTouch
