@@ -1,7 +1,7 @@
 [project]
 name = "holotouch"
 version = "0.1.0"
-description = "Spatial hand-gesture window control for XFCE/X11"
+description = "Spatial hand-gesture window control for XFCE on X11 and GNOME on Wayland"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -10,6 +10,7 @@ dependencies = [
     "PySide6",
     "xcffib",
     "evdev",
+    "jeepney>=0.9.0",
 ]
 
 [project.scripts]

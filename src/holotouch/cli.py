@@ -23,6 +23,7 @@ def _cmd_run(args) -> int:
         raise ValueError("--frames goes with --record FILE")
     frames_dir = _frames_dir(args.record, args.frames) if args.record else None
     from holotouch.overlay.app import App
+    from holotouch.session import adapt, make_backend
     from holotouch.tracker.source import RecordingSource, ReplaySource, TrackerSource
 
     if args.dry_run:
@@ -39,9 +40,8 @@ def _cmd_run(args) -> int:
         backend.add_window(WindowInfo(1, w // 10, h // 8, w * 4 // 10, h // 2, title="Demo one"))
         backend.add_window(WindowInfo(2, w // 2, h // 3, w * 4 // 10, h // 2, title="Demo two"))
     else:
-        from holotouch.x11.backend import X11Backend
-
-        backend = X11Backend(cfg.gesture.scroll_backend)
+        backend = make_backend(cfg)
+    adapt(cfg)
     if args.replay:
         source = ReplaySource(args.replay, loop=args.loop)
     else:
@@ -109,12 +109,14 @@ def _cmd_collect(args) -> int:
     from PySide6.QtWidgets import QApplication
 
     from holotouch.overlay.app import App
+    from holotouch.session import adapt
     from holotouch.tracker.source import RecordingSource, TrackerSource
     from holotouch.x11.fake import FakeBackend
 
     qt = QApplication(["holotouch"])
     size = qt.primaryScreen().size()
     backend = FakeBackend((size.width(), size.height()))  # no windows: nothing here acts on anything
+    adapt(cfg)
     source = RecordingSource(TrackerSource(cfg, frames_dir), args.file)
     code = App(cfg, backend, source, prompter=prompter).run()
     prompter.save(labels, args.person)
@@ -160,6 +162,16 @@ def _cmd_phone(args) -> int:
     return 0 if pair(cfg) else 1
 
 
+def _cmd_gnome(args) -> int:
+    from holotouch.gnome.install import install, uninstall
+
+    if args.remove:
+        uninstall()
+    else:
+        install()
+    return 0
+
+
 def _cmd_panel(args) -> int:
     if args.install:
         from holotouch.panel.desktop import install_launcher
@@ -174,6 +186,9 @@ def _cmd_panel(args) -> int:
         cfg, problem = load_config(args.config), ""
     except ValueError as exc:
         cfg, problem = Config(), f"The config file has a problem: {exc}"
+    from holotouch.session import adapt
+
+    adapt(cfg)
     return run_panel(cfg, args.config, problem)
 
 
@@ -192,7 +207,7 @@ def _cmd_ctl(args) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="holotouch", description="Hand-gesture window control for XFCE/X11")
+    parser = argparse.ArgumentParser(prog="holotouch", description="Hand-gesture window control for XFCE on X11 and GNOME on Wayland")
     parser.add_argument("--config", type=Path, default=None, help="config file (default ~/.config/holotouch/config.toml)")
     parser.add_argument("-v", "--verbose", action="store_true")
     commands = parser.add_subparsers(dest="cmd")
@@ -255,6 +270,10 @@ def main(argv: list[str] | None = None) -> int:
     phone = commands.add_parser("phone", help="let the Android phone that is plugged in be sent pages over Wi-Fi from now on")
     phone.add_argument("--usb", action="store_true", help="go back to reaching the phone by USB alone")
     phone.set_defaults(func=_cmd_phone)
+
+    gnome = commands.add_parser("gnome", help="install the GNOME Shell extension that HoloTouch needs on GNOME under Wayland")
+    gnome.add_argument("--remove", action="store_true", help="take the extension out again")
+    gnome.set_defaults(func=_cmd_gnome)
 
     ctl = commands.add_parser("ctl", help="control a running instance")
     ctl.add_argument("command", choices=["pause", "resume", "toggle", "debug", "status", "phone", "quit"])

@@ -7,7 +7,7 @@
 name = "Terminal"
 icon = "utilities-terminal"
 type = "command"
-data = "exo-open --launch TerminalEmulator"
+data = "exo-open --launch TerminalEmulator"  # XFCE's way; elsewhere name the terminal itself, as "kgx"
 
 [[item]]
 name = "Browser"

@@ -6,20 +6,13 @@ import logging
 
 import xcffib.xtest
 
+from holotouch.keys import keysyms
 from holotouch.x11.conn import X11
 
 log = logging.getLogger(__name__)
 
 _KEY_PRESS, _KEY_RELEASE = 2, 3
 _BUTTON_PRESS, _BUTTON_RELEASE = 4, 5
-# X keysyms; a Latin-1 character is its own.
-_NAMED_KEYS = {
-    "space": 0x20, "Return": 0xFF0D, "Escape": 0xFF1B, "Tab": 0xFF09, "BackSpace": 0xFF08, "Delete": 0xFFFF,
-    "Home": 0xFF50, "Left": 0xFF51, "Up": 0xFF52, "Right": 0xFF53, "Down": 0xFF54,
-    "Page_Up": 0xFF55, "Page_Down": 0xFF56, "End": 0xFF57,
-    **{f"F{n}": 0xFFBD + n for n in range(1, 13)},
-}  # fmt: skip
-_MODIFIERS = {"ctrl": 0xFFE3, "shift": 0xFFE1, "alt": 0xFFE9}  # the left one of each
 _WHEEL_UP, _WHEEL_DOWN = 4, 5
 _HI_RES_PER_NOTCH = 120
 
@@ -89,15 +82,14 @@ def press_key(x: X11, key: str) -> bool:
     "ctrl+t" is t with Control held; shift and alt are held the same way. False if the keyboard
     has no such key, and then nothing is pressed.
     """
-    *held, key = key.split("+") if len(key) > 1 else [key]
-    keysyms = [_MODIFIERS.get(name) for name in held] + [_NAMED_KEYS.get(key) or (ord(key) if len(key) == 1 else None)]
+    wanted = keysyms(key)
     setup = x.conn.get_setup()
     first, count = setup.min_keycode, setup.max_keycode - setup.min_keycode + 1
     mapping = x.core.GetKeyboardMapping(first, count).reply()
     unshifted = [mapping.keysyms[index * mapping.keysyms_per_keycode] for index in range(count)]
-    if any(keysym is None or keysym not in unshifted for keysym in keysyms):
+    if any(keysym is None or keysym not in unshifted for keysym in wanted):
         return False
-    keycodes = [first + unshifted.index(keysym) for keysym in keysyms]
+    keycodes = [first + unshifted.index(keysym) for keysym in wanted]
     xtest = x.conn(xcffib.xtest.key)
     for keycode in keycodes:
         xtest.FakeInput(_KEY_PRESS, keycode, 0, x.root, 0, 0, 0)

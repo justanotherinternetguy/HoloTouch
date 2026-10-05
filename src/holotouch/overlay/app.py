@@ -14,6 +14,12 @@ from pathlib import Path
 os.environ["QT_SCALE_FACTOR"] = "1"
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "0"
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
+from holotouch.session import gnome_wayland  # noqa: E402
+
+# The overlay is an X11 window, under Wayland too: only there can a window sit above all the
+# others, unmanaged and let clicks through. XWayland shows it.
+if gnome_wayland():
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
 os.environ.setdefault("QT_QPA_PLATFORM", "xcb")
 
 from PySide6.QtCore import QSize, Qt, QTimer, QUrl  # noqa: E402
@@ -43,6 +49,10 @@ _format.setAlphaBufferSize(8)
 _format.setSwapInterval(1)
 QSurfaceFormat.setDefaultFormat(_format)
 _RAISE_INTERVAL_MS = 2000
+# GNOME takes a window that covers a whole monitor for one shown fullscreen, and hides its top
+# bar for as long as the window is there. The overlay is kept this many pixels short of that: one
+# of GNOME's units, which is at most as many pixels.
+_GNOME_SHORT = 4
 
 
 class ThemeIconProvider(QQuickImageProvider):
@@ -62,11 +72,12 @@ class ThemeIconProvider(QQuickImageProvider):
 
 
 def _use_desktop_icon_theme() -> None:
+    if gnome_wayland():
+        command = ["gsettings", "get", "org.gnome.desktop.interface", "icon-theme"]
+    else:
+        command = ["xfconf-query", "-c", "xsettings", "-p", "/Net/IconThemeName"]
     try:
-        name = subprocess.run(
-            ["xfconf-query", "-c", "xsettings", "-p", "/Net/IconThemeName"],
-            capture_output=True, text=True, timeout=2,
-        ).stdout.strip()
+        name = subprocess.run(command, capture_output=True, text=True, timeout=2).stdout.strip().strip("'")
     except (OSError, subprocess.SubprocessError):
         name = ""
     QIcon.setThemeName(name or "Adwaita")
@@ -152,7 +163,10 @@ class App:
             log.error("QML: %s", error.toString())
         if view.status() != QQuickView.Status.Ready:
             raise RuntimeError("overlay failed to load")
-        view.setGeometry(self.qt.primaryScreen().geometry())
+        geometry = self.qt.primaryScreen().geometry()
+        if gnome_wayland():
+            geometry.setHeight(geometry.height() - _GNOME_SHORT)
+        view.setGeometry(geometry)
         view.show()
         return view
 

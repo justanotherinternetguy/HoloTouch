@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 from holotouch.config import Config
+from holotouch.session import gnome_wayland
 
 _EWMH_NEEDED = (
     "_NET_ACTIVE_WINDOW",
@@ -60,6 +61,38 @@ def _check_x11() -> bool:
             "desktop background window",
             f"minimized, so windows leave trails on bare desktop; restore it with: {_RESTORE_DESKTOP}" if minimized else "",
         )
+    x.conn.disconnect()
+    return good
+
+
+def _check_gnome() -> bool:
+    """GNOME under Wayland: windows are reached through HoloTouch's extension, and the overlay is shown by XWayland."""
+    from holotouch.gnome import install
+    from holotouch.gnome.backend import VERSION
+
+    good = _line(True, "GNOME on Wayland")
+    running, installed = install.running_version(), install.installed_version()
+    again = "run `holotouch gnome`, then log out and back in"
+    if running == VERSION:
+        good &= _line(True, "GNOME Shell extension", f"version {running}")
+    elif running is not None:
+        good &= _line(False, "GNOME Shell extension", f"GNOME Shell runs version {running} and HoloTouch works with version {VERSION}: {again}")
+    elif installed is None:
+        good &= _line(False, "GNOME Shell extension", f"not installed: {again}")
+    elif not install.enabled():
+        good &= _line(False, "GNOME Shell extension", "installed, but turned off: run `holotouch gnome`")
+    else:
+        good &= _line(False, "GNOME Shell extension", "installed, but GNOME Shell has not started since: log out and back in")
+    try:
+        from holotouch.x11.conn import X11
+
+        x = X11()
+    except Exception as exc:
+        return _line(False, "XWayland, which shows the overlay", str(exc))
+    good &= _line(True, "XWayland, which shows the overlay", os.environ.get("DISPLAY", ""))
+    for extension in ("XFIXES", "SHAPE"):
+        present = x.core.QueryExtension(len(extension), extension).reply().present
+        good &= _line(bool(present), f"X extension {extension}")
     x.conn.disconnect()
     return good
 
@@ -116,7 +149,8 @@ def _check_phone(cfg: Config) -> None:
     from holotouch.launcher.phone import phone_at
 
     label = "sending pages to the phone"
-    missing = [tool for tool in ("adb", "xclip") if shutil.which(tool) is None]
+    # Under GNOME the clipboard is read through GNOME Shell, and xclip is not needed.
+    missing = [tool for tool in ("adb", *(() if gnome_wayland() else ("xclip",))) if shutil.which(tool) is None]
     if missing:
         _line(None, label, "needs " + " and ".join(missing))
         return
@@ -152,10 +186,14 @@ def _check_phone(cfg: Config) -> None:
 
 
 def run_doctor(cfg: Config, measure: bool = True) -> int:
-    good = _check_x11()
+    gnome = gnome_wayland()
+    good = _check_gnome() if gnome else _check_x11()
     good &= _check_camera(cfg, measure)
     uinput = os.access("/dev/uinput", os.W_OK)
-    _line(True if uinput else None, "smooth scrolling via /dev/uinput", "" if uinput else "falling back to XTEST steps")
+    if gnome and cfg.gesture.scroll_backend != "uinput":
+        _line(True, "smooth scrolling via GNOME Shell")
+    else:
+        _line(True if uinput else None, "smooth scrolling via /dev/uinput", "" if uinput else "falling back to XTEST steps")
     playerctl = shutil.which("playerctl") is not None
     _line(True if playerctl else None, "skipping tracks via playerctl", "" if playerctl else "not installed, so the pie menu's Music items do nothing")
     from holotouch.launcher.camera import camera_command, photo_dir
@@ -173,7 +211,7 @@ def run_doctor(cfg: Config, measure: bool = True) -> int:
         for what, there in (
             ("parecord or arecord, to record the microphone", recorder_command() is not None),
             ("Handy, or dictate_command under [gesture], to turn speech into text", bool(transcriber_command(cfg))),
-            ("xdotool, to type it", shutil.which("xdotool") is not None),
+            ("xdotool, to type it", gnome or shutil.which("xdotool") is not None),  # GNOME Shell types it itself
         )
         if not there
     ]

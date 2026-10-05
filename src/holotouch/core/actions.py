@@ -1,7 +1,7 @@
 """The window-manager interface the interaction engine drives.
 
-The engine only talks to this protocol, so it runs the same against the real X11 backend and the
-in-memory fake used by tests and --dry-run.
+The engine only talks to this protocol, so it runs the same against the real backends (X11, and
+GNOME under Wayland) and the in-memory fake used by tests and --dry-run.
 """
 
 from __future__ import annotations

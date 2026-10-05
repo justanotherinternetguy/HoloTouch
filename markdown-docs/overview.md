@@ -5,7 +5,8 @@ your hands, HoloTouch reads what they are doing, and it moves, resizes, closes, 
 windows accordingly. A see-through overlay on the screen shows where your hands are and what each
 gesture is about to do.
 
-It runs on X11 with the XFCE window manager (xfwm4), on a laptop CPU, with an ordinary webcam.
+It runs on X11 with the XFCE window manager (xfwm4), and on GNOME under Wayland, on a laptop CPU,
+with an ordinary webcam.
 
 ## What you can do with it
 
@@ -160,9 +161,10 @@ It is off by default and the rules are what HoloTouch uses.
 
 ### 3. Acting on the desktop
 
-`src/holotouch/x11/`
+`src/holotouch/x11/`, `src/holotouch/gnome/`
 
-The engine talks to a `WindowBackend` interface (`core/actions.py`), which has two implementations:
+The engine talks to a `WindowBackend` interface (`core/actions.py`), which has three implementations.
+`session.py` picks the one for the desktop HoloTouch is started on:
 
 - **`X11Backend`** keeps a cached model of xfwm4's windows, updated from X events, and changes them
   with standard EWMH requests: move, resize, maximize, minimize, close, activate, switch workspace.
@@ -170,6 +172,16 @@ The engine talks to a `WindowBackend` interface (`core/actions.py`), which has t
   smooth high-resolution wheel events, and falls back to XTEST steps. Volume is set with `pactl`,
   brightness through `/sys/class/backlight`, and tracks are skipped and the music paused with `playerctl`.
   Dictated text is typed with `xdotool`.
+- **`GnomeBackend`** is for GNOME under Wayland, where no program but the compositor may list
+  windows, move them, press keys or read the clipboard. All of that is asked of a GNOME Shell
+  extension of HoloTouch's own (`gnome/extension/`), over the session bus. The extension sends the
+  state of the desktop whenever it changes, moves and resizes windows as Mutter itself would,
+  clicks, scrolls and presses keys through GNOME Shell's virtual pointer and keyboard (the ones its
+  on-screen keyboard uses), hands dictated text to a text field as an input method does, and makes
+  the window switcher's pictures. It watches nothing until HoloTouch is running, and stops when
+  HoloTouch has gone. `holotouch gnome` installs it; GNOME Shell has to be started again, by
+  logging out and back in, before it finds it. The volume, the brightness and the music are
+  reached as on X11.
 - **`FakeBackend`** holds windows in memory only. Tests use it, and so does practice mode
   (`--dry-run`), where gestures act on two stand-in windows.
 
@@ -185,8 +197,8 @@ and a macro comes before an app.
 **The phone** (`launcher/phone.py`) is sent a page by whoever runs the engine, which only says
 when an open palm was tossed upward at a web browser. A browser tells no other program which
 page it shows, so the address is taken as a person would take it: Ctrl+L and Ctrl+C are pressed
-in the browser, the clipboard is read with `xclip`, and Escape and Shift+F6 hand the keyboard
-back to the page. What the clipboard held is put back if it was text. Then `adb` tells the
+in the browser, the clipboard is read with `xclip` (on GNOME, through the Shell extension), and
+Escape and Shift+F6 hand the keyboard back to the page. What the clipboard held is put back if it was text. Then `adb` tells the
 phone to open the address: any Android phone with USB debugging allowed, which needs no app of
 its own. There is no server, and nothing leaves the local network.
 
@@ -258,6 +270,13 @@ engine produces an `OverlayState` each tick and a bridge hands it to QML, which 
 - an optional diagnostics panel showing frame rate, latency, each hand's pose and measurements,
   and the hands and face as the camera sees them, with the hands left out as background drawn faint
 
+On GNOME the overlay is the same X11 window, shown by XWayland: Wayland itself has no window that
+may sit above the others and let clicks through. It stops a few pixels short of the bottom of the
+screen, because GNOME hides its top bar under a window that covers a whole monitor. On a scaled
+monitor XWayland gives X11 programs a larger screen than the monitor has pixels and scales the
+result down, so HoloTouch draws that much larger (`session.pixel_ratio`), and converts between
+the overlay's pixels and GNOME's own units wherever it talks to the extension.
+
 Everything pairs cream with ink so that it reads over light and dark windows alike, and nothing
 samples or blurs the desktop. The colours and typefaces are in `src/holotouch/theme.py`, shared with
 the control panel.
@@ -297,6 +316,7 @@ the panel leaves HoloTouch running, and a HoloTouch started from a terminal is p
 | `holotouch panel [--install]` | Open the control panel, or add it to the applications menu. |
 | `holotouch ctl pause\|resume\|toggle\|debug\|status\|phone\|quit` | Control a running instance. `phone` sends the page in the browser to the phone, as the toss does. |
 | `holotouch phone [--usb]` | Let the Android phone that is plugged in be sent pages over Wi-Fi from now on; `--usb` goes back to the cable. |
+| `holotouch gnome [--remove]` | Install the GNOME Shell extension that HoloTouch needs on GNOME under Wayland, or take it out. Log out and back in afterwards. |
 | `holotouch doctor [--no-camera]` | Check that the machine has what HoloTouch needs, and measure the tracking rate. |
 | `holotouch record FILE` | Record hand tracking to a JSONL file. |
 | `holotouch collect FILE` | Record while prompting one pose after another, so the recording comes labelled. |
@@ -333,13 +353,14 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 
 ## What it needs
 
-- Linux with an X11 session, xfwm4 and a running compositor
+- Linux with an X11 session, xfwm4 and a running compositor; or GNOME 45 or later under Wayland (tried on GNOME 50),
+  with XWayland, and HoloTouch's Shell extension (`holotouch gnome`, then log out and back in)
 - a webcam
-- Python 3.12 with MediaPipe, PySide6 (Qt 6), xcffib, evdev and NumPy
+- Python 3.12 with MediaPipe, PySide6 (Qt 6), xcffib, evdev, jeepney and NumPy
 
 Optional, each for one feature: `/dev/uinput` access (smooth scrolling), `pactl` (volume),
 `playerctl` (skipping tracks and pausing the music), `v4l2-ctl` (camera settings), a camera app such as Snapshot or
-Cheese (only where one is named as `camera_command`), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), `xdg-open` (macros that open an address), and `adb`, `xclip` and an Android phone with USB debugging allowed (sending a page to the phone). `holotouch doctor` reports which of these are present.
+Cheese (only where one is named as `camera_command`), `parecord`, `xdotool` and Handy (dictation), `gtk-launch` (the launcher's apps), `xdg-open` (macros that open an address), and `adb`, `xclip` and an Android phone with USB debugging allowed (sending a page to the phone). On GNOME, `/dev/uinput`, `xdotool` and `xclip` are not needed: the Shell extension scrolls, types and reads the clipboard. `holotouch doctor` reports which of these are present.
 
 ## Where things are
 
@@ -351,9 +372,11 @@ Cheese (only where one is named as `camera_command`), `parecord`, `xdotool` and 
 | `src/holotouch/core/` | Hand tracks, filters, poses, letters, face, the engine and its interactions |
 | `src/holotouch/launcher/` | The pie menu's model and actions, the keys it holds for each kind of app, the macros, the installed apps, the photo and the camera app, dictation, and the phone |
 | `src/holotouch/x11/` | The X11 backend, input injection, window pictures, and the fake backend |
+| `src/holotouch/gnome/` | The backend for GNOME under Wayland, the GNOME Shell extension it talks to, and what installs it |
+| `src/holotouch/session.py`, `system.py`, `keys.py` | Which desktop this is and what follows from it; the volume, brightness and music; keys by name |
 | `src/holotouch/overlay/` | The overlay process, its bridge to QML, and the QML components |
 | `src/holotouch/panel/` | The control panel |
 | `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
-| `tests/` | 424 tests, run against synthetic hands, recorded landmarks and the fake backend |
+| `tests/` | 455 tests, run against synthetic hands, recorded landmarks, the fake backend, and private xfwm4 and GNOME Shell sessions |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

@@ -1,7 +1,7 @@
 """What the pie menu offers for the app in use: that app's own keys, by the kind of app it is.
 
 An app is told by the words of its window class, as the web browsers are for a clap: "Thunar" is
-a file manager, "com.mitchellh.ghostty" a terminal. An app of no kind listed here gets the keys
+a file manager, "com.mitchellh.ghostty" a terminal, "org.gnome.Nautilus" a file manager again. An app of no kind listed here gets the keys
 that mean the same nearly everywhere.
 
 Each kind's items are listed clockwise from the top. Most kinds have seven, which, entered from
@@ -48,7 +48,7 @@ BROWSER = AppKind(
 KINDS = (
     AppKind(
         "This terminal",
-        "terminal ghostty kitty alacritty wezterm konsole tilix terminator",
+        "terminal ghostty kitty alacritty wezterm konsole tilix terminator ptyxis kgx console foot",
         (
             _key("Last command", "Up", "go-up"),
             _key("New tab", "ctrl+shift+t", "plus"),

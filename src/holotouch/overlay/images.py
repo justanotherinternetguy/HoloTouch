@@ -7,6 +7,7 @@ from PySide6.QtGui import QIcon, QImage, QPixmap
 from PySide6.QtQuick import QQuickImageProvider
 
 from holotouch.core.actions import Pixels
+from holotouch.launcher.launch import icon_name
 
 
 def _pixmap(pixels: Pixels, side: int = 0) -> QPixmap:
@@ -24,7 +25,7 @@ class WindowImages:
     """Loaded from the backend each time the switcher opens, then served to QML."""
 
     def __init__(self, backend, thumbnails: bool = True):
-        # Only the X11 backend has pictures; the dry-run backend falls back to theme icons.
+        # Only the real backends have pictures; the dry-run backend falls back to theme icons.
         self._icon_source = getattr(backend, "window_icon", None)
         self._thumb_source = getattr(backend, "window_thumbnails", None) if thumbnails else None
         self._pixmaps: dict[tuple[str, int], QPixmap] = {}
@@ -53,7 +54,7 @@ class WindowImages:
         pixels = self._icon_source(win, side) if self._icon_source else None
         if pixels is not None:
             return _pixmap(pixels, side)
-        name = wm_class.lower()
+        name = icon_name(wm_class)
         if name and QIcon.hasThemeIcon(name):
             return QIcon.fromTheme(name).pixmap(side, side)
         return None
