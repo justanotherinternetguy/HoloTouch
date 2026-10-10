@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -53,6 +54,24 @@ def installed_version() -> int | None:
         return None
 
 
+def shell_version() -> int | None:
+    """The GNOME Shell installed here, by its first number; None if it cannot be told."""
+    good, said = _run("gnome-shell", "--version")  # "GNOME Shell 51.0"
+    found = re.search(r"\d+", said) if good else None
+    return int(found.group()) if found else None
+
+
+def made_for() -> list[int]:
+    """The GNOME Shell versions the extension names as its own: GNOME Shell runs it on no other."""
+    return [int(v) for v in json.loads((SOURCE / "metadata.json").read_text())["shell-version"]]
+
+
+def too_new() -> int | None:
+    """The GNOME Shell here, if it is one the extension does not name; None if it is named, or cannot be told."""
+    version = shell_version()
+    return version if version is not None and version not in made_for() else None
+
+
 def running_version() -> int | None:
     """The version of the extension that GNOME Shell is running now; None if it runs none."""
     from holotouch.gnome.shell import ShellLink
@@ -94,6 +113,9 @@ def install(say=print) -> bool:
     if running_version() == VERSION:
         say("GNOME Shell is running it: HoloTouch is ready")
         return True
+    if (newer := too_new()) is not None:
+        say(f"GNOME Shell {newer} is newer than any the extension is made for (up to {max(made_for())}), so GNOME Shell will not run it: a newer HoloTouch is needed")
+        return False
     say("now log out and back in: GNOME Shell only finds a new extension, or a new version of one, when it starts")
     return False
 

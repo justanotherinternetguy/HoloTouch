@@ -353,7 +353,7 @@ model, to measure where MediaPipe goes wrong when fingers are hidden.
 
 ## What it needs
 
-- Linux with an X11 session, xfwm4 and a running compositor; or GNOME 45 or later under Wayland (tried on GNOME 50),
+- Linux with an X11 session, xfwm4 and a running compositor; or GNOME 45 to 51 under Wayland (tried on GNOME 51),
   with XWayland, and HoloTouch's Shell extension (`holotouch gnome`, then log out and back in)
 - a webcam
 - Python 3.12 with MediaPipe, PySide6 (Qt 6), xcffib, evdev, jeepney and NumPy
@@ -378,5 +378,5 @@ Cheese (only where one is named as `camera_command`), `parecord`, `xdotool` and 
 | `src/holotouch/panel/` | The control panel |
 | `src/holotouch/theme.py`, `ui/`, `fonts/` | Colours and typefaces, the icons both windows draw, and the bundled fonts (Open Font License) |
 | `src/holotouch/tools/` | `doctor`, `collect`, `score`, `train` and `train-letters` |
-| `tests/` | 455 tests, run against synthetic hands, recorded landmarks, the fake backend, and private xfwm4 and GNOME Shell sessions |
+| `tests/` | 456 tests, run against synthetic hands, recorded landmarks, the fake backend, and private xfwm4 and GNOME Shell sessions |
 | `research/`, `docs/` | The occlusion research script and plan, and the script that trains the letter model |

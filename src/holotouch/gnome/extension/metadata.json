@@ -3,6 +3,6 @@
   "name": "HoloTouch",
   "description": "Lets HoloTouch, the hand-gesture window control, see and move windows, and click, scroll and type, on GNOME under Wayland. It does nothing until HoloTouch is running.",
   "url": "https://holotouch.internetguy.dev",
-  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "shell-version": ["45", "46", "47", "48", "49", "50", "51"],
   "version": 1
 }

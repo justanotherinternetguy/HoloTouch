@@ -256,6 +256,29 @@ def test_the_extension_is_installed_and_turned_on(tmp_path, monkeypatch):
     assert install.installed_version() is None and settings[install._ENABLED] == "['other@example.org']"
 
 
+def test_a_gnome_shell_newer_than_the_extension_names_is_told_apart(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    version = {"said": "GNOME Shell 51.0"}
+
+    def run(*command):
+        if command[0] == "gnome-shell":
+            return True, version["said"]
+        return (True, "@as []") if command[:2] == ("gsettings", "get") else (True, "")
+
+    monkeypatch.setattr(install, "_run", run)
+    monkeypatch.setattr(install, "running_version", lambda: None)
+    assert install.shell_version() == 51 and install.too_new() is None
+    said = []
+    install.install(said.append)
+    assert "log out and back in" in said[-1]
+    version["said"] = f"GNOME Shell {max(install.made_for()) + 1}.0"
+    assert install.too_new() == max(install.made_for()) + 1
+    install.install(said.append)
+    assert "newer" in said[-1] and "log out" not in said[-1]
+    version["said"] = ""
+    assert install.shell_version() is None and install.too_new() is None
+
+
 def test_the_extensions_version_is_the_backends():
     source = (install.SOURCE / "extension.js").read_text()
     metadata = json.loads((install.SOURCE / "metadata.json").read_text())

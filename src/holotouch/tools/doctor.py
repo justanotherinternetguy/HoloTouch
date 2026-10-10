@@ -79,6 +79,8 @@ def _check_gnome() -> bool:
         good &= _line(False, "GNOME Shell extension", f"GNOME Shell runs version {running} and HoloTouch works with version {VERSION}: {again}")
     elif installed is None:
         good &= _line(False, "GNOME Shell extension", f"not installed: {again}")
+    elif (newer := install.too_new()) is not None:
+        good &= _line(False, "GNOME Shell extension", f"GNOME Shell {newer} is newer than any the extension is made for (up to {max(install.made_for())}): a newer HoloTouch is needed")
     elif not install.enabled():
         good &= _line(False, "GNOME Shell extension", "installed, but turned off: run `holotouch gnome`")
     else:

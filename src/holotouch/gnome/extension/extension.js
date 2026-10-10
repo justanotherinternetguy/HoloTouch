@@ -9,16 +9,18 @@
 // when the last caller has left the bus.
 
 import Clutter from 'gi://Clutter';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Meta from 'gi://Meta';
-import Mtk from 'gi://Mtk';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
-import Cairo from 'cairo';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+
+// The picture of a window is made by the same hands as a screenshot of one.
+Gio._promisify(Shell.Screenshot, 'composite_to_stream');
 
 const BUS_NAME = 'dev.internetguy.HoloTouch';
 const OBJECT_PATH = '/dev/internetguy/HoloTouch';
@@ -102,7 +104,11 @@ const SCROLL_PER_NOTCH = 10; // what one notch of a mouse wheel scrolls, in Clut
 const TYPE_INTERVAL_MS = 5;
 const TYPE_BATCH = 8; // characters typed every TYPE_INTERVAL_MS
 
-// Maximizing took the directions as an argument before GNOME 49, and has kept them apart since.
+// Maximizing took the directions as an argument before GNOME 49. Since then maximize() and
+// unmaximize() take none and do both directions, which is all that is wanted here. (They are
+// set_maximize_flags(BOTH) and set_unmaximize_flags(BOTH) by other names: asked twice over,
+// GNOME 51 takes the second as a request for the size the window has now, which undoes the
+// first.)
 function isMaximized(win) {
     return win.is_maximized ? win.is_maximized() : win.get_maximized() === Meta.MaximizeFlags.BOTH;
 }
@@ -112,20 +118,11 @@ function maximizedFlags(win) {
 }
 
 function setMaximized(win, on) {
-    const both = Meta.MaximizeFlags.BOTH;
-    if (on) {
-        if (win.set_maximize_flags) {
-            win.set_maximize_flags(both);
-            win.maximize();
-        } else {
-            win.maximize(both);
-        }
-    } else if (win.set_unmaximize_flags) {
-        win.set_unmaximize_flags(both);
-        win.unmaximize();
-    } else {
-        win.unmaximize(both);
-    }
+    const old = !win.set_maximize_flags;
+    if (on)
+        win.maximize(...old ? [Meta.MaximizeFlags.BOTH] : []);
+    else
+        win.unmaximize(...old ? [Meta.MaximizeFlags.BOTH] : []);
 }
 
 function describe(win, tracker) {
@@ -164,7 +161,6 @@ class Service {
         this._buttonDown = false;
         this._typing = []; // keyvals yet to be typed
         this._typeTimeout = 0;
-        this._thumbnailIdles = new Set();
         this._clipboardSerial = 0;
         global.display.get_selection().connectObject('owner-changed', (_selection, type) => {
             if (type === Meta.SelectionType.SELECTION_CLIPBOARD)
@@ -179,12 +175,10 @@ class Service {
     destroy() {
         for (const name of [...this._watchers.keys()])
             this._drop(name);
-        for (const id of [this._typeTimeout, ...this._thumbnailIdles]) {
-            if (id)
-                GLib.source_remove(id);
-        }
+        if (this._typeTimeout)
+            GLib.source_remove(this._typeTimeout);
+        this._typeTimeout = 0;
         this._typing = [];
-        this._thumbnailIdles.clear();
         global.display.get_selection().disconnectObject(this);
         Gio.bus_unown_name(this._owner);
         this._dbus.unexport();
@@ -362,7 +356,9 @@ class Service {
     // -- the pointer and the keyboard ---------------------------------------------------------
 
     _device(type) {
-        return Clutter.get_default_backend().get_default_seat().create_virtual_device(type);
+        // The stage knows its backend since GNOME 46; before that Clutter had one default backend.
+        const backend = global.stage.context?.get_backend?.() ?? Clutter.get_default_backend();
+        return backend.get_default_seat().create_virtual_device(type);
     }
 
     _mouse() {
@@ -454,60 +450,58 @@ class Service {
 
     // -- pictures of the windows --------------------------------------------------------------
 
-    _thumbnail(actor, maxWidth, maxHeight, directory) {
+    async _thumbnail(actor, maxWidth, maxHeight, directory) {
         const win = actor.meta_window;
+        const content = actor.paint_to_content(null);
+        if (!content)
+            return null;
+        // Without the shadow a window draws round itself. The picture is in the window's own
+        // pixels, which on a scaled monitor are more than the stage's units.
         const frame = win.get_frame_rect();
         const buffer = win.get_buffer_rect();
-        // Without the shadow a window draws round itself.
-        const image = actor.get_image(new Mtk.Rectangle({
-            x: frame.x - buffer.x,
-            y: frame.y - buffer.y,
-            width: frame.width,
-            height: frame.height,
-        }));
-        if (!image)
-            return null;
-        const scale = Math.min(maxWidth / image.getWidth(), maxHeight / image.getHeight(), 1);
-        const width = Math.max(Math.round(image.getWidth() * scale), 1);
-        const height = Math.max(Math.round(image.getHeight() * scale), 1);
-        const small = new Cairo.ImageSurface(Cairo.Format.ARGB32, width, height);
-        const cr = new Cairo.Context(small);
-        cr.scale(width / image.getWidth(), height / image.getHeight());
-        cr.setSourceSurface(image, 0, 0);
-        cr.paint();
-        cr.$dispose();
+        const scale = actor.get_resource_scale();
+        const stream = Gio.MemoryOutputStream.new_resizable();
+        const image = await Shell.Screenshot.composite_to_stream(
+            content.get_texture(),
+            Math.round((frame.x - buffer.x) * scale), Math.round((frame.y - buffer.y) * scale),
+            Math.max(Math.round(frame.width * scale), 1), Math.max(Math.round(frame.height * scale), 1),
+            1, null, 0, 0, 1, stream);
+        stream.close(null);
+        const fit = Math.min(maxWidth / image.get_width(), maxHeight / image.get_height(), 1);
+        const width = Math.max(Math.round(image.get_width() * fit), 1);
+        const height = Math.max(Math.round(image.get_height() * fit), 1);
         const path = GLib.build_filenamev([directory, `${win.get_id()}.png`]);
-        small.writeToPNG(path);
+        image.scale_simple(width, height, GdkPixbuf.InterpType.BILINEAR).savev(path, 'png', [], []);
         return path;
     }
 
     // Pictures of these windows, each made to fit the size given and saved as a PNG file for
-    // the caller to read and delete. One window is done at a time, between frames, so that the
-    // desktop does not stand still while they are made.
-    ThumbnailsAsync([ids, maxWidth, maxHeight], invocation) {
+    // the caller to read and delete. One window is done at a time, and the desktop goes on
+    // between them, so that it does not stand still while they are made.
+    async _thumbnails(ids, maxWidth, maxHeight) {
         const directory = GLib.build_filenamev([GLib.get_user_runtime_dir(), 'holotouch-thumbnails']);
         GLib.mkdir_with_parents(directory, 0o700);
         const wanted = new Set(ids.map(Number));
         const actors = global.get_window_actors().filter(
             actor => actor.meta_window && wanted.has(actor.meta_window.get_id()));
         const paths = {};
-        const idle = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-            const actor = actors.shift();
-            if (actor) {
-                try {
-                    const path = this._thumbnail(actor, maxWidth, maxHeight, directory);
-                    if (path)
-                        paths[actor.meta_window.get_id()] = path;
-                } catch (error) {
-                    console.debug(`HoloTouch: no picture of a window: ${error}`);
-                }
-                return GLib.SOURCE_CONTINUE;
+        for (const actor of actors) {
+            if (!this._dbus) // the extension was turned off meanwhile
+                break;
+            try {
+                const path = await this._thumbnail(actor, maxWidth, maxHeight, directory);
+                if (path)
+                    paths[actor.meta_window.get_id()] = path;
+            } catch (error) {
+                console.debug(`HoloTouch: no picture of a window: ${error}`);
             }
-            this._thumbnailIdles.delete(idle);
-            invocation.return_value(new GLib.Variant('(s)', [JSON.stringify(paths)]));
-            return GLib.SOURCE_REMOVE;
-        });
-        this._thumbnailIdles.add(idle);
+        }
+        return paths;
+    }
+
+    ThumbnailsAsync([ids, maxWidth, maxHeight], invocation) {
+        this._thumbnails(ids, maxWidth, maxHeight).then(
+            paths => invocation.return_value(new GLib.Variant('(s)', [JSON.stringify(paths)])));
     }
 }
 
