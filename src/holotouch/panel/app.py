@@ -12,6 +12,13 @@ os.environ["QT_SCALE_FACTOR"] = "1"
 os.environ["QT_AUTO_SCREEN_SCALE_FACTOR"] = "0"
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
 
+from holotouch.session import gnome_wayland  # noqa: E402
+
+# Under Wayland Qt would have the compositor scale the window, and blur it: as an X11 window it
+# is drawn at the size it is shown, as the overlay is.
+if gnome_wayland():
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+
 from PySide6.QtCore import QPoint, QSize, QUrl  # noqa: E402
 from PySide6.QtGui import QColor, QGuiApplication, QIcon  # noqa: E402
 from PySide6.QtQuick import QQuickView  # noqa: E402

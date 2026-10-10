@@ -41,8 +41,21 @@ _CHECKS = {
     "X11 session": (
         "X11 desktop session",
         "This isn't an X11 session",
-        "HoloTouch needs one. Log out and pick an Xorg session at the login screen.",
+        "HoloTouch needs one, or GNOME on Wayland. Log out and pick an Xorg session at the login screen.",
     ),
+    "GNOME on Wayland": ("GNOME desktop on Wayland", "", ""),
+    "GNOME Shell extension": (
+        "GNOME Shell lets HoloTouch reach your windows",
+        "GNOME Shell doesn't know HoloTouch yet",
+        "On GNOME, HoloTouch moves windows and presses keys through an extension of its own. "
+        "Run `holotouch gnome` in a terminal, then log out and back in.",
+    ),
+    "XWayland, which shows the overlay": (
+        "Overlay can be drawn",
+        "The overlay can't be drawn",
+        "HoloTouch draws over your windows through XWayland, which GNOME starts by itself. This GNOME may have been built without it.",
+    ),
+    "smooth scrolling via GNOME Shell": ("Smooth scrolling", "", ""),
     "X server connection": (
         "X server answers",
         "The X server can't be reached",
@@ -87,7 +100,7 @@ _CHECKS = {
     "dictation for the letter Y": (
         "Dictation for the letter Y",
         "The letter Y can't dictate yet",
-        "It needs a recorder (parecord or arecord), xdotool to type, and Handy to turn speech into text, "
+        "It needs a recorder (parecord or arecord), xdotool to type (not on GNOME), and Handy to turn speech into text, "
         "or another program named as dictate_command under [gesture].",
     ),
     "macros to spell": (

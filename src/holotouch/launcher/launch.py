@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import copy
 import logging
+import os
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -14,6 +16,21 @@ from holotouch.launcher.appmenu import app_kind
 from holotouch.launcher.menu import PLAY_PAUSE, MenuItem, item_from_dict, track_direction
 
 log = logging.getLogger(__name__)
+
+_TERMINALS = (
+    "xdg-terminal-exec", "ptyxis", "kgx", "gnome-terminal", "ghostty", "kitty", "alacritty", "foot", "wezterm",
+    "konsole", "xfce4-terminal", "xterm",
+)  # fmt: skip
+
+
+def _preferred_apps() -> tuple[str, str, str]:
+    """The commands that open the terminal, the web browser and the file manager this desktop prefers."""
+    if "XFCE" in os.environ.get("XDG_CURRENT_DESKTOP", "").upper().split(":") and shutil.which("exo-open"):
+        return tuple(f"exo-open --launch {kind}" for kind in ("TerminalEmulator", "WebBrowser", "FileManager"))
+    # Elsewhere nothing names a preferred terminal, so it is the first of these that is installed.
+    terminal = next((name for name in _TERMINALS if shutil.which(name)), _TERMINALS[0])
+    return terminal, 'gtk-launch "$(xdg-settings get default-web-browser)"', 'xdg-open "$HOME"'
+
 
 def default_menu(desktop_count: int) -> MenuItem:
     window = MenuItem(
@@ -32,10 +49,11 @@ def default_menu(desktop_count: int) -> MenuItem:
         icon="preferences-desktop-workspaces",
         children=[MenuItem(f"Workspace {i + 1}", "workspace", i, "") for i in range(desktop_count)],
     )
+    terminal, browser, files = _preferred_apps()
     root = [
-        MenuItem("Terminal", "command", "exo-open --launch TerminalEmulator", "utilities-terminal"),
-        MenuItem("Browser", "command", "exo-open --launch WebBrowser", "web-browser"),
-        MenuItem("Files", "command", "exo-open --launch FileManager", "system-file-manager"),
+        MenuItem("Terminal", "command", terminal, "utilities-terminal"),
+        MenuItem("Browser", "command", browser, "web-browser"),
+        MenuItem("Files", "command", files, "system-file-manager"),
         # What this holds depends on the app in use: see holotouch/launcher/appmenu.py.
         MenuItem("This app", "app_actions", icon="keys"),
     ]
@@ -52,6 +70,15 @@ def default_menu(desktop_count: int) -> MenuItem:
     )
     root += [music, MenuItem("Windows", "running_windows", icon="view-grid"), window, workspaces]
     return MenuItem("HoloTouch", children=root)
+
+
+def icon_name(wm_class: str) -> str:
+    """What the icon theme most likely calls a window's icon, going by its class.
+
+    An X11 program's class is its name with a capital ("Thunar", icon "thunar"). A Wayland
+    program's is its app id ("org.gnome.Nautilus"), which is the icon's name as it stands.
+    """
+    return wm_class if "." in wm_class else wm_class.lower()
 
 
 def load_menu(desktop_count: int, path: Path = MENU_PATH) -> MenuItem:
@@ -78,7 +105,7 @@ class Launcher:
     def _expand(self, item: MenuItem) -> None:
         if item.type == "running_windows":
             item.children = [
-                MenuItem(w.title[:40] or w.wm_class or "Window", "activate_window", w.id, w.wm_class.lower())
+                MenuItem(w.title[:40] or w.wm_class or "Window", "activate_window", w.id, icon_name(w.wm_class))
                 for w in self.backend.windows()
             ]
         elif item.type == "app_actions":

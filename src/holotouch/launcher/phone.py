@@ -7,7 +7,9 @@ told to open the address, over adb: by Wi-Fi once pair() has been run with the p
 and by USB otherwise.
 
 Nothing here waits. The clipboard is read by xclip and the phone is reached by adb, each a
-separate process looked in on every tick, so a slow one cannot stall the overlay.
+separate process looked in on every tick, so a slow one cannot stall the overlay. Under Wayland
+xclip cannot be relied on, and the clipboard is read through the backend instead, which asks the
+compositor.
 """
 
 from __future__ import annotations
@@ -153,6 +155,9 @@ class PhoneLink:
         self._due = 0.0  # when the next step of it may be taken
         self._deadline = 0.0  # when the stage it is at is given up
         self._readers: list[subprocess.Popen] = []  # xclip, printing the clipboard's text and when it was filled
+        # A backend that can read the clipboard itself, which is then not xclip's to read.
+        self._direct = getattr(backend, "clipboard", None)
+        self._read_direct: tuple[str | None, str | None] | None = None  # what it read, until collected
         self._held: tuple[str | None, str | None] = (None, None)  # what they printed before the address was copied
         self._reread = False  # the clipboard was seen to be newer, and its text has been read again since
         self._adb: subprocess.Popen | None = None
@@ -201,6 +206,9 @@ class PhoneLink:
 
     def _read(self) -> bool:
         """Start reading the clipboard: its text, and the time its owner took it, which tells a new copy from the last."""
+        if self._direct is not None:
+            self._read_direct = self._direct()
+            return True
         try:
             self._readers = [
                 subprocess.Popen(
@@ -216,6 +224,9 @@ class PhoneLink:
 
     def _collect(self, now: float) -> tuple[str | None, str | None] | None:
         """What the readers printed, each None if it could print nothing; None while they are still at it."""
+        if self._read_direct is not None:
+            read, self._read_direct = self._read_direct, None
+            return read
         if not self._readers:
             return None
         if any(reader.poll() is None for reader in self._readers):
@@ -241,7 +252,7 @@ class PhoneLink:
         self._readers = []
 
     def _step_reading(self, now: float) -> None:
-        if not self._readers:
+        if not self._readers and self._read_direct is None:
             if now >= self._due and not self._read():
                 self._fail(now, NO_LINK, "cannot read the clipboard: xclip is needed")
             return
@@ -276,6 +287,9 @@ class PhoneLink:
 
     def _write(self, text: str) -> None:
         """Put text on the clipboard. xclip stays behind to hand it out, until something else is copied."""
+        if self._direct is not None:
+            self.backend.set_clipboard(text)
+            return
         try:
             writer = subprocess.Popen(
                 [*_CLIPBOARD, "-i"], text=True, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
@@ -330,6 +344,7 @@ class PhoneLink:
     def close(self) -> None:
         """Stop at once: a page on its way is not sent."""
         self._drop_readers()
+        self._read_direct = None
         if self._adb is not None:
             if self._adb.poll() is None:
                 self._adb.kill()

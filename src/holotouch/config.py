@@ -201,7 +201,8 @@ class GestureConfig:
     scroll_down_from_deg: float = 60.0
     scroll_speed: float = 20.0  # top speed in wheel notches per second
     scroll_invert: bool = False  # true: tilting the fingers down scrolls up
-    scroll_backend: str = "auto"  # auto | uinput | xtest
+    # auto | uinput | xtest. On GNOME under Wayland, auto scrolls through GNOME Shell and xtest is the same.
+    scroll_backend: str = "auto"
     # Turning a claw like a knob changes the volume (right hand) or the screen brightness (left).
     knob_dead_deg: float = 8.0  # a turn smaller than this changes nothing
     knob_full_deg: float = 120.0  # the turn that takes it from nothing to full

@@ -42,6 +42,26 @@ HoloTouch is designed to be...
 
 HoloTouch is the **closest** you will get to tony stark tossing windows around.
 
+# running it
+
+HoloTouch runs on XFCE under X11, and on GNOME under Wayland.
+
+```sh
+uv sync
+uv run holotouch doctor     # what this machine has, and what it lacks
+uv run holotouch            # or `holotouch panel` for the control panel
+```
+
+On GNOME, Wayland lets no outside program move windows or press keys, so HoloTouch does both
+through a small GNOME Shell extension of its own. Install it once, then log out and back in
+(GNOME Shell only finds a new extension when it starts):
+
+```sh
+uv run holotouch gnome
+```
+
+`markdown-docs/overview.md` has the gestures and how it all works.
+
 # how we built it
 
 HoloTouch uses the built-in webcam to compute a total of >500 landmark/feature points across the user's face, hands, and forearms. We use Mediapipe for most of this computation, although we augment with a small, custom-trained neural net.

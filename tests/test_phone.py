@@ -254,3 +254,40 @@ def test_an_address_cannot_run_anything_in_either_shell_on_the_way_to_a_phone_on
     line = asked(box)[-1][-1]
     assert shlex.split(line)[-1] == address  # one word for the phone's shell, having been one for this machine's
     assert not (box / "pwned").exists() and not Path("pwned").exists()
+
+
+class WaylandBrowser(Browser):
+    """A browser on a desktop whose clipboard only the backend can read, as under Wayland: xclip is never run."""
+
+    def __init__(self, box, address=PAGE):
+        super().__init__(box, address)
+        self.copied, self.serial = None, 0
+
+    def press_key(self, key):
+        FakeBackend.press_key(self, key)
+        if key == "ctrl+c" and self.address is not None:
+            self.set_clipboard(self.address)
+
+    def clipboard(self):
+        return self.copied, str(self.serial)
+
+    def set_clipboard(self, text):
+        self.copied, self.serial = text, self.serial + 1
+
+
+def test_the_clipboard_is_read_through_a_backend_that_can_read_it(box, monkeypatch):
+    monkeypatch.setattr(phone, "_CLIPBOARD", ("no-such-program",))
+    backend = WaylandBrowser(box)
+    backend.set_clipboard("what was copied before")
+    began, said = play(link_to(backend))
+    assert began and said == [SENDING, SENT, ""]
+    assert asked(box)[0][0] == "shell" and shlex.quote(PAGE) in asked(box)[0][1]
+    assert backend.copied == "what was copied before"
+
+
+def test_through_the_backend_too_an_address_already_on_the_clipboard_is_still_sent(box, monkeypatch):
+    monkeypatch.setattr(phone, "_CLIPBOARD", ("no-such-program",))
+    backend = WaylandBrowser(box)
+    backend.set_clipboard(PAGE)
+    began, said = play(link_to(backend))
+    assert began and said == [SENDING, SENT, ""]
